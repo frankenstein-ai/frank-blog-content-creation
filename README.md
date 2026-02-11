@@ -17,6 +17,18 @@ CLI tool that generates blog content from R&D git commits using LLMs. Built for 
 - Git (available in `PATH`)
 - An API key for OpenAI or Anthropic (not needed for Ollama)
 
+## Install
+
+**From GitHub Releases** (prebuilt binaries):
+
+Download the latest binary for your platform from [Releases](https://github.com/frankenstein-ai/frank-blog-content-generator/releases).
+
+**From source**:
+
+```bash
+go build -o frank .
+```
+
 ## Quick start
 
 ```bash
@@ -68,6 +80,7 @@ frank generate memos       Generate insight memos from git commits
 frank generate blog-posts  Generate blog posts from notebooks and memos
 frank generate homepage    Generate homepage from notebooks and memos
 frank status               Show last processed commit per source repo
+frank --version            Print version
 ```
 
 ### Global flags
@@ -134,6 +147,17 @@ Source repo (git commits)
 - Hugo-compatible with `+++` frontmatter
 
 **Homepage**: Single file at the path specified by `--output-file`
+
+## Releases
+
+Releases are automated via [GoReleaser](https://goreleaser.com). Pushing a version tag triggers the release workflow:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+This builds binaries for linux/darwin/windows (amd64 + arm64) and publishes them as a GitHub Release with checksums.
 
 ## GitHub Actions
 

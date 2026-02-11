@@ -45,7 +45,8 @@ examples/
   notebook/                  # reference notebook format
   insight_memos/             # reference memo format
 .github/workflows/
-  generate.yaml              # GitHub Actions workflow
+  generate.yaml              # GitHub Actions content generation workflow
+  release.yaml               # GitHub Actions release workflow (GoReleaser)
 ```
 
 ## Architecture & Key Patterns

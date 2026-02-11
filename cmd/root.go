@@ -5,10 +5,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// version is set via ldflags at build time (e.g. -X cmd.version=1.0.0).
+var version = "dev"
+
 var rootCmd = &cobra.Command{
-	Use:   "frank",
-	Short: "Frankenstein AI Lab content generator",
-	Long:  "Automatically generate research notebooks, insight memos, and blog posts from R&D git commits.",
+	Use:     "frank",
+	Short:   "Frankenstein AI Lab content generator",
+	Long:    "Automatically generate research notebooks, insight memos, and blog posts from R&D git commits.",
+	Version: version,
 }
 
 func Execute() error {
