@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"fmt"
+	"os"
 )
 
 type Provider interface {
@@ -23,6 +24,8 @@ func New(provider, model, apiKey string) (Provider, error) {
 			model = "gpt-4o"
 		case "anthropic":
 			model = "claude-sonnet-4-20250514"
+		case "ollama":
+			model = "llama3.2"
 		}
 	}
 
@@ -31,7 +34,9 @@ func New(provider, model, apiKey string) (Provider, error) {
 		return NewOpenAI(model, apiKey), nil
 	case "anthropic":
 		return NewAnthropic(model, apiKey), nil
+	case "ollama":
+		return NewOllama(model, os.Getenv("OLLAMA_HOST")), nil
 	default:
-		return nil, fmt.Errorf("unknown LLM provider: %q (use 'openai' or 'anthropic')", provider)
+		return nil, fmt.Errorf("unknown LLM provider: %q (use 'openai', 'anthropic', or 'ollama')", provider)
 	}
 }

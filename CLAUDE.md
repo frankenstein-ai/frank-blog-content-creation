@@ -51,7 +51,7 @@ examples/
 ## Architecture & Key Patterns
 
 - **Config resolution**: CLI flags > env vars > defaults. Env vars enable GitHub Actions compatibility. All `FRANK_`-prefixed except API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`).
-- **LLM providers**: `Provider` interface in `internal/llm/llm.go`, implementations for OpenAI and Anthropic using raw `net/http` (no SDKs). Factory via `llm.New(providerName)`.
+- **LLM providers**: `Provider` interface in `internal/llm/llm.go`, implementations for OpenAI, Anthropic, and Ollama using raw `net/http` (no SDKs). Factory via `llm.New(providerName)`. Ollama uses the OpenAI-compatible API with no auth header.
 - **Generators**: All follow the same pipeline — read state → get commits → group → call LLM → parse output → write files → update state.
 - **Prompts**: Embedded at compile time via `go:embed` in `internal/prompts/`. Templates in `.txt` files.
 - **State**: SQLite tracks last processed commit per (source_repo, content_type). DB file: `.frank-state.db`.
@@ -70,3 +70,4 @@ examples/
 - No test framework yet
 - Config env vars: `FRANK_LLM_PROVIDER`, `FRANK_LLM_MODEL`, `FRANK_STATE_DB`, `FRANK_SOURCE_REPO`, `FRANK_OUTPUT_DIR`, `FRANK_NOTEBOOKS_DIR`, `FRANK_MEMOS_DIR`, `FRANK_BLOG_DIR`
 - API key env vars: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`
+- Ollama env var: `OLLAMA_HOST` (default: `http://localhost:11434`)

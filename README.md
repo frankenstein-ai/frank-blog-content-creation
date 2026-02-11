@@ -15,7 +15,7 @@ CLI tool that generates blog content from R&D git commits using LLMs. Built for 
 
 - Go 1.24+
 - Git (available in `PATH`)
-- An API key for OpenAI or Anthropic
+- An API key for OpenAI or Anthropic (not needed for Ollama)
 
 ## Quick start
 
@@ -74,7 +74,7 @@ frank status               Show last processed commit per source repo
 
 | Flag | Env var | Description |
 |---|---|---|
-| `--llm-provider` | `FRANK_LLM_PROVIDER` | LLM provider: `openai` or `anthropic` |
+| `--llm-provider` | `FRANK_LLM_PROVIDER` | LLM provider: `openai`, `anthropic`, or `ollama` |
 | `--llm-model` | `FRANK_LLM_MODEL` | Model name (uses provider default if omitted) |
 | `--state-db` | `FRANK_STATE_DB` | Path to SQLite state file (default: `.frank-state.db`) |
 | `--dry-run` | — | Preview what would be generated without calling the LLM |
@@ -96,6 +96,7 @@ frank status               Show last processed commit per source repo
 |---|---|
 | OpenAI | `OPENAI_API_KEY` |
 | Anthropic | `ANTHROPIC_API_KEY` |
+| Ollama | `OLLAMA_HOST` (optional, default: `http://localhost:11434`) |
 
 ## How it works
 
@@ -150,7 +151,7 @@ Optional variables: `FRANK_LLM_PROVIDER`, `FRANK_LLM_MODEL`
 ## Tech stack
 
 - **Go** with [Cobra](https://github.com/spf13/cobra) for CLI
-- **LLM**: raw `net/http` calls to OpenAI and Anthropic APIs (no SDKs)
+- **LLM**: raw `net/http` calls to OpenAI, Anthropic, and Ollama APIs (no SDKs)
 - **State**: [modernc.org/sqlite](https://pkg.go.dev/modernc.org/sqlite) — pure Go, no CGo
 - **Prompts**: embedded at compile time via `go:embed`
 
