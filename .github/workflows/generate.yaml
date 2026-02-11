@@ -1,0 +1,134 @@
+name: Generate Content
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      content_type:
+        description: 'What to generate'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - notebooks
+          - memos
+          - blog-posts
+          - homepage
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout frank-blog-content
+        uses: actions/checkout@v4
+
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+        with:
+          repository: frankenstein-ai/mobile-agents
+          path: source-repo
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Checkout lab-work
+        uses: actions/checkout@v4
+        with:
+          repository: frankenstein-ai/lab-work
+          path: lab-work
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Checkout blog
+        uses: actions/checkout@v4
+        with:
+          repository: frankenstein-ai/frank-blog
+          path: frank-blog
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Restore state DB
+        uses: actions/cache@v4
+        with:
+          path: .frank-state.db
+          key: frank-state-${{ github.run_id }}
+          restore-keys: frank-state-
+
+      - name: Build frank CLI
+        run: go build -o frank .
+
+      - name: Generate notebooks
+        if: inputs.content_type == 'all' || inputs.content_type == 'notebooks'
+        run: |
+          ./frank generate notebooks \
+            --source-repo ./source-repo \
+            --output-dir ./lab-work/notebook \
+            --period week
+        env:
+          FRANK_LLM_PROVIDER: ${{ vars.FRANK_LLM_PROVIDER || 'anthropic' }}
+          FRANK_LLM_MODEL: ${{ vars.FRANK_LLM_MODEL || '' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Generate memos
+        if: inputs.content_type == 'all' || inputs.content_type == 'memos'
+        run: |
+          ./frank generate memos \
+            --source-repo ./source-repo \
+            --output-dir ./lab-work/insight_memos
+        env:
+          FRANK_LLM_PROVIDER: ${{ vars.FRANK_LLM_PROVIDER || 'anthropic' }}
+          FRANK_LLM_MODEL: ${{ vars.FRANK_LLM_MODEL || '' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Generate blog posts
+        if: inputs.content_type == 'all' || inputs.content_type == 'blog-posts'
+        run: |
+          ./frank generate blog-posts \
+            --notebooks-dir ./lab-work/notebook \
+            --memos-dir ./lab-work/insight_memos \
+            --output-dir ./frank-blog/content/posts
+        env:
+          FRANK_LLM_PROVIDER: ${{ vars.FRANK_LLM_PROVIDER || 'anthropic' }}
+          FRANK_LLM_MODEL: ${{ vars.FRANK_LLM_MODEL || '' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Generate homepage
+        if: inputs.content_type == 'all' || inputs.content_type == 'homepage'
+        run: |
+          ./frank generate homepage \
+            --notebooks-dir ./lab-work/notebook \
+            --memos-dir ./lab-work/insight_memos \
+            --output-file ./frank-blog/content/_index.md
+        env:
+          FRANK_LLM_PROVIDER: ${{ vars.FRANK_LLM_PROVIDER || 'anthropic' }}
+          FRANK_LLM_MODEL: ${{ vars.FRANK_LLM_MODEL || '' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Commit and push lab-work
+        run: |
+          cd lab-work
+          git config user.name "frank-bot"
+          git config user.email "frank-bot@frankenstein-ai.github.io"
+          git add -A
+          git diff --staged --quiet || git commit -m "Auto-generate notebooks and memos [skip ci]"
+          git push
+
+      - name: Commit and push blog
+        run: |
+          cd frank-blog
+          git config user.name "frank-bot"
+          git config user.email "frank-bot@frankenstein-ai.github.io"
+          git add -A
+          git diff --staged --quiet || git commit -m "Auto-generate blog posts and homepage [skip ci]"
+          git push
