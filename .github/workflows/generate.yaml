@@ -24,7 +24,7 @@ jobs:
   generate:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout frank-blog-content
+      - name: Checkout frank-blog-content-generator
         uses: actions/checkout@v4
 
       - name: Checkout source repo

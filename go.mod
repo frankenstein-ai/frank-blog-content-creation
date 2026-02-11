@@ -1,4 +1,4 @@
-module github.com/frankenstein-ai/frank-blog-content
+module github.com/frankenstein-ai/frank-blog-content-generator
 
 go 1.24.4
 

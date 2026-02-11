@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/frankenstein-ai/frank-blog-content/cmd/generate"
+	"github.com/frankenstein-ai/frank-blog-content-generator/cmd/generate"
 	"github.com/spf13/cobra"
 )
 

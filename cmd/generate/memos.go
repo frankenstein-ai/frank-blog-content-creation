@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/frankenstein-ai/frank-blog-content/internal/config"
-	"github.com/frankenstein-ai/frank-blog-content/internal/generator"
-	"github.com/frankenstein-ai/frank-blog-content/internal/llm"
-	"github.com/frankenstein-ai/frank-blog-content/internal/prompts"
-	"github.com/frankenstein-ai/frank-blog-content/internal/state"
+	"github.com/frankenstein-ai/frank-blog-content-generator/internal/config"
+	"github.com/frankenstein-ai/frank-blog-content-generator/internal/generator"
+	"github.com/frankenstein-ai/frank-blog-content-generator/internal/llm"
+	"github.com/frankenstein-ai/frank-blog-content-generator/internal/prompts"
+	"github.com/frankenstein-ai/frank-blog-content-generator/internal/state"
 	"github.com/spf13/cobra"
 )
 

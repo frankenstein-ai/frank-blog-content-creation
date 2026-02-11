@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/frankenstein-ai/frank-blog-content/cmd"
+	"github.com/frankenstein-ai/frank-blog-content-generator/cmd"
 )
 
 func main() {

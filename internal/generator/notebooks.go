@@ -8,10 +8,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/frankenstein-ai/frank-blog-content/internal/git"
-	"github.com/frankenstein-ai/frank-blog-content/internal/llm"
-	"github.com/frankenstein-ai/frank-blog-content/internal/prompts"
-	"github.com/frankenstein-ai/frank-blog-content/internal/state"
+	"github.com/frankenstein-ai/frank-blog-content-generator/internal/git"
+	"github.com/frankenstein-ai/frank-blog-content-generator/internal/llm"
+	"github.com/frankenstein-ai/frank-blog-content-generator/internal/prompts"
+	"github.com/frankenstein-ai/frank-blog-content-generator/internal/state"
 )
 
 type NotebookGenerator struct {

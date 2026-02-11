@@ -1,4 +1,4 @@
-# frank-blog-content CLI — Implementation Plan
+# frank-blog-content-generator CLI — Implementation Plan
 
 ## Context
 
@@ -21,7 +21,7 @@ Frankenstein AI Lab does a lot of R&D but lacks time to write about it. This CLI
 ## Project Structure
 
 ```
-frank-blog-content/
+frank-blog-content-generator/
 ├── main.go
 ├── go.mod / go.sum
 ├── .gitignore

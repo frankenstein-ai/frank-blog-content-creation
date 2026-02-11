@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/frankenstein-ai/frank-blog-content/internal/state"
+	"github.com/frankenstein-ai/frank-blog-content-generator/internal/state"
 	"github.com/spf13/cobra"
 )
 
