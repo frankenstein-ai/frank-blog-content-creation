@@ -45,6 +45,8 @@ func Load(cmd *cobra.Command) (*Config, error) {
 		cfg.APIKey = os.Getenv("OPENAI_API_KEY")
 	case "anthropic":
 		cfg.APIKey = os.Getenv("ANTHROPIC_API_KEY")
+	case "openrouter":
+		cfg.APIKey = os.Getenv("OPENROUTER_API_KEY")
 	}
 
 	return cfg, nil
@@ -55,11 +57,11 @@ func (c *Config) ValidateForGenerate() error {
 	if c.LLMProvider == "" {
 		return fmt.Errorf("--llm-provider or FRANK_LLM_PROVIDER is required")
 	}
-	if c.LLMProvider != "openai" && c.LLMProvider != "anthropic" && c.LLMProvider != "ollama" {
-		return fmt.Errorf("llm-provider must be 'openai', 'anthropic', or 'ollama', got %q", c.LLMProvider)
+	if c.LLMProvider != "openai" && c.LLMProvider != "anthropic" && c.LLMProvider != "ollama" && c.LLMProvider != "openrouter" {
+		return fmt.Errorf("llm-provider must be 'openai', 'anthropic', 'ollama', or 'openrouter', got %q", c.LLMProvider)
 	}
 	if c.LLMProvider != "ollama" && c.APIKey == "" {
-		return fmt.Errorf("API key not set: set OPENAI_API_KEY or ANTHROPIC_API_KEY")
+		return fmt.Errorf("API key not set: set OPENAI_API_KEY, ANTHROPIC_API_KEY, or OPENROUTER_API_KEY")
 	}
 	return nil
 }
