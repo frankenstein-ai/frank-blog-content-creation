@@ -1,32 +1,51 @@
 # Blog Content Generation from R&D
 
-We're a startup, named frankenstein ai lab, a startup focused on AI R&D.
+We're Frankenstein AI Lab, a startup focused on AI R&D. We do a lot of research but don't have time to write about it properly. This CLI tool automatically generates content from our git commits.
 
-We're working on lot's of researches and also do not have time to write properly about these.
+## What It Does
 
-We wanna a way to aotomatic do it based on our projects commits
+Reads git commits from R&D project repos and uses LLMs to generate:
 
-## Automatic Notebooks and Insight Memos from researches work
+1. **Notebooks** — research summaries for a time period (day/week), terse and structured
+2. **Insight Memos** — durable knowledge learned about a topic
+3. **Blog Posts** — markdown posts generated from notebooks and memos
+4. **Homepage** — up-to-date overview of latest research and WIP
 
-Our work uses git and we can describe as best the commits message and descriptions, so it helps us to create notebooks and Insight Memos of the work. The goal here is to have a feature that automatic reads the commits starting at some point (we should track the last commit hash we used to generate notebooks and insight memos), and generate new notebooks and insight memos.
+## How It Works
 
-### About notebooks and Insight Memos
+- Reads commits from a **separate source repo** (our R&D projects)
+- Tracks the last processed commit in a **local SQLite file** so it only processes new work
+- Uses **LLMs** (OpenAI or Anthropic, configurable) to generate structured markdown
+- Outputs follow opinionated file naming and content conventions (see examples/)
 
-* Notebooks are about the work did on a time space (day, week, etc)
-* Insight Memos are knowledge learned about a topic
+## Output Conventions
 
-## Automatic generate markdown blog post
+### Notebooks
 
-Our work use markdown to write blog posts. It's a neutral format and allow using any modern blog engine. Today, we read the notebooks and insight memos to write blog posts. The goal here  is to have a feature that automatic reads the commits stating at some point (we should track the last commit we used) and generate blog posts.
+- Filename: `{YYYY}-{MM}-{Topic-Slug}-{NN}.md` (e.g., `2025-02-LLM-Reasoning-01.md`)
+- Heading matches filename: `# 2025-02-LLM-Reasoning-01`
+- Sections: Question, Hypothesis, Setup, What I Tried, Results, Notes, Next
+- Style: terse bullet points, bare metrics, no filler
 
-## The homepage
+### Insight Memos
 
-The homepage has a up to date info about the job with last researches/work, and WIP (work in progress)
+- Filename: `{YYYY}-{project}-insight-memo-{NNN}.md` (e.g., `2025-mobile-agents-insight-memo-001.md`)
+- Heading: `# Insight Memo: [Short Title]`
+- Sections: Why This Matters, What We Found, When It Works, When It Fails, Recommendation
+- Style: terse bullet points, one-line recommendation
 
 ## UX
 
-I wanna have a way to configure the project dir to extract the commits, the project dir of insight memos and notebooks and the blog dir.
+Configure via CLI flags and/or env vars:
+- Source project repo path
+- Output directories for notebooks, memos, blog posts
+- LLM provider and model
+- Supports `--dry-run` to preview without generating
 
-## Teck stack
+## Tech Stack
 
-I think it can be a cli written in golang, using some good text generation LLM and allow running on github actions using this CLI, so maybe it need to have env vars and command line arguments.
+- **Go** CLI using Cobra
+- **LLM**: OpenAI + Anthropic (configurable, raw net/http — no SDKs)
+- **State**: SQLite via `modernc.org/sqlite` (pure Go, no CGo)
+- **Prompts**: embedded templates (`embed.FS`)
+- **CI**: GitHub Actions workflow for scheduled/manual generation
