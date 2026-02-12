@@ -144,6 +144,33 @@ func parseFileChanges(raw string) []FileChange {
 	return files
 }
 
+// GetCommit looks up a single commit by hash, validating it exists.
+func GetCommit(repoPath string, hash string) (*Commit, error) {
+	absPath, err := filepath.Abs(repoPath)
+	if err != nil {
+		return nil, fmt.Errorf("resolving repo path: %w", err)
+	}
+
+	format := "%H%x00%s%x00%b%x00%an%x00%aI%x00END_COMMIT%x00"
+	cmd := exec.Command("git", "-C", absPath, "log", "-1", "--format="+format, hash)
+	output, err := cmd.Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return nil, fmt.Errorf("commit %s not found: %s", hash, string(exitErr.Stderr))
+		}
+		return nil, fmt.Errorf("git log failed: %w", err)
+	}
+
+	commits, err := parseCommits(string(output))
+	if err != nil {
+		return nil, err
+	}
+	if len(commits) == 0 {
+		return nil, fmt.Errorf("commit %s not found", hash)
+	}
+	return &commits[0], nil
+}
+
 // GroupByWeek groups commits by ISO year-week.
 func GroupByWeek(commits []Commit) map[string][]Commit {
 	groups := make(map[string][]Commit)

@@ -35,6 +35,11 @@ go build -o frank .
 # Build
 go build -o frank .
 
+# Set a starting commit (skip old history)
+./frank init \
+  --source-repo /path/to/your-project \
+  --commit abc1234
+
 # Generate notebooks (dry-run — no API key needed)
 ./frank generate notebooks \
   --source-repo /path/to/your-project \
@@ -79,6 +84,7 @@ frank generate notebooks   Generate research notebooks from git commits
 frank generate memos       Generate insight memos from git commits
 frank generate blog-posts  Generate blog posts from notebooks and memos
 frank generate homepage    Generate homepage from notebooks and memos
+frank init                 Set starting commit point for content generation
 frank status               Show last processed commit per source repo
 frank --version            Print version
 ```
@@ -96,7 +102,9 @@ frank --version            Print version
 
 | Flag | Env var | Used by |
 |---|---|---|
-| `--source-repo` | `FRANK_SOURCE_REPO` | `notebooks`, `memos` |
+| `--source-repo` | `FRANK_SOURCE_REPO` | `init`, `notebooks`, `memos` |
+| `--commit` | — | `init` |
+| `--content-type` | — | `init` (optional: `notebook`, `memo`, or `blog-post`) |
 | `--output-dir` | `FRANK_OUTPUT_DIR` | `notebooks`, `memos`, `blog-posts` |
 | `--notebooks-dir` | `FRANK_NOTEBOOKS_DIR` | `blog-posts`, `homepage` |
 | `--memos-dir` | `FRANK_MEMOS_DIR` | `blog-posts`, `homepage` |

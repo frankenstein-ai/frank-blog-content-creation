@@ -28,6 +28,7 @@ No tests exist yet.
 cmd/
   root.go                    # root command
   status.go                  # status subcommand
+  init.go                    # init subcommand (set starting commit)
   generate/
     generate.go              # generate parent command
     notebooks.go             # generate notebooks
