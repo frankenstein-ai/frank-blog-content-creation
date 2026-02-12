@@ -15,13 +15,14 @@ import (
 )
 
 type BlogPostGenerator struct {
-	LLM          llm.Provider
-	State        *state.Store
-	Templates    *prompts.Templates
-	NotebooksDir string
-	MemosDir     string
-	OutputDir    string
-	DryRun       bool
+	LLM           llm.Provider
+	State         *state.Store
+	Templates     *prompts.Templates
+	NotebooksDir  string
+	MemosDir      string
+	OutputDir     string
+	ReadmeContent string
+	DryRun        bool
 }
 
 func (g *BlogPostGenerator) Generate(ctx context.Context) ([]GenerateResult, error) {
@@ -42,7 +43,7 @@ func (g *BlogPostGenerator) Generate(ctx context.Context) ([]GenerateResult, err
 
 	fmt.Printf("Found %d notebooks and %d memos\n", len(notebooks), len(memos))
 
-	userPrompt := buildBlogPostUserPrompt(notebooks, memos)
+	userPrompt := buildBlogPostUserPrompt(notebooks, memos, g.ReadmeContent)
 
 	if g.DryRun {
 		fmt.Printf("[dry-run] Would generate blog post from %d notebooks and %d memos\n", len(notebooks), len(memos))
@@ -85,8 +86,12 @@ func (g *BlogPostGenerator) Generate(ctx context.Context) ([]GenerateResult, err
 	}}, nil
 }
 
-func buildBlogPostUserPrompt(notebooks, memos map[string]string) string {
+func buildBlogPostUserPrompt(notebooks, memos map[string]string, readmeContent string) string {
 	var b strings.Builder
+
+	if readmeContent != "" {
+		fmt.Fprintf(&b, "Project description (from README):\n%s\n\n", readmeContent)
+	}
 
 	if len(notebooks) > 0 {
 		b.WriteString("Source notebooks:\n\n")

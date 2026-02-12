@@ -6,6 +6,7 @@ import (
 
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/config"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/generator"
+	"github.com/frankenstein-ai/frank-blog-content-generator/internal/git"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/llm"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/prompts"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/state"
@@ -64,13 +65,14 @@ func runNotebooks(cmd *cobra.Command, args []string) error {
 	}
 
 	gen := &generator.NotebookGenerator{
-		LLM:        provider,
-		State:      store,
-		Templates:  tmpls,
-		SourceRepo: cfg.SourceRepo,
-		OutputDir:  outputDir,
-		Period:     cfg.Period,
-		DryRun:     cfg.DryRun,
+		LLM:           provider,
+		State:         store,
+		Templates:     tmpls,
+		SourceRepo:    cfg.SourceRepo,
+		OutputDir:     outputDir,
+		Period:        cfg.Period,
+		ReadmeContent: git.ReadREADME(cfg.SourceRepo),
+		DryRun:        cfg.DryRun,
 	}
 
 	results, err := gen.Generate(context.Background())

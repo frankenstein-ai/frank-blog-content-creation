@@ -15,13 +15,14 @@ import (
 )
 
 type NotebookGenerator struct {
-	LLM        llm.Provider
-	State      *state.Store
-	Templates  *prompts.Templates
-	SourceRepo string
-	OutputDir  string
-	Period     string // "day" or "week"
-	DryRun     bool
+	LLM           llm.Provider
+	State         *state.Store
+	Templates     *prompts.Templates
+	SourceRepo    string
+	OutputDir     string
+	Period        string // "day" or "week"
+	ReadmeContent string
+	DryRun        bool
 }
 
 type GenerateResult struct {
@@ -80,7 +81,7 @@ func (g *NotebookGenerator) Generate(ctx context.Context) ([]GenerateResult, err
 		month := groupCommits[0].Timestamp.Format("01")
 		year := groupCommits[0].Timestamp.Format("2006")
 
-		userPrompt := buildNotebookUserPrompt(repoName, key, groupCommits)
+		userPrompt := buildNotebookUserPrompt(repoName, key, groupCommits, g.ReadmeContent)
 
 		if g.DryRun {
 			fmt.Printf("[dry-run] Would generate notebook for %s (%d commits)\n", key, len(groupCommits))
@@ -145,9 +146,12 @@ func (g *NotebookGenerator) Generate(ctx context.Context) ([]GenerateResult, err
 	return results, nil
 }
 
-func buildNotebookUserPrompt(repoName, period string, commits []git.Commit) string {
+func buildNotebookUserPrompt(repoName, period string, commits []git.Commit, readmeContent string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Project: %s\n", repoName)
+	if readmeContent != "" {
+		fmt.Fprintf(&b, "\nProject description (from README):\n%s\n", readmeContent)
+	}
 	fmt.Fprintf(&b, "Period: %s\n", period)
 	fmt.Fprintf(&b, "\nCommits (%d total):\n\n", len(commits))
 

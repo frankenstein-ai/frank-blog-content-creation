@@ -12,13 +12,14 @@ import (
 )
 
 type HomepageGenerator struct {
-	LLM          llm.Provider
-	State        *state.Store
-	Templates    *prompts.Templates
-	NotebooksDir string
-	MemosDir     string
-	OutputFile   string
-	DryRun       bool
+	LLM           llm.Provider
+	State         *state.Store
+	Templates     *prompts.Templates
+	NotebooksDir  string
+	MemosDir      string
+	OutputFile    string
+	ReadmeContent string
+	DryRun        bool
 }
 
 func (g *HomepageGenerator) Generate(ctx context.Context) (*GenerateResult, error) {
@@ -43,7 +44,7 @@ func (g *HomepageGenerator) Generate(ctx context.Context) (*GenerateResult, erro
 		currentHomepage = string(data)
 	}
 
-	userPrompt := buildHomepageUserPrompt(currentHomepage, notebooks, memos)
+	userPrompt := buildHomepageUserPrompt(currentHomepage, notebooks, memos, g.ReadmeContent)
 
 	if g.DryRun {
 		fmt.Printf("[dry-run] Would update homepage from %d notebooks and %d memos\n", len(notebooks), len(memos))
@@ -78,8 +79,12 @@ func (g *HomepageGenerator) Generate(ctx context.Context) (*GenerateResult, erro
 	}, nil
 }
 
-func buildHomepageUserPrompt(currentHomepage string, notebooks, memos map[string]string) string {
+func buildHomepageUserPrompt(currentHomepage string, notebooks, memos map[string]string, readmeContent string) string {
 	var b strings.Builder
+
+	if readmeContent != "" {
+		fmt.Fprintf(&b, "Project description (from README):\n%s\n\n", readmeContent)
+	}
 
 	if currentHomepage != "" {
 		fmt.Fprintf(&b, "Current homepage:\n%s\n\n", currentHomepage)

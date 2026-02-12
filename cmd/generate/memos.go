@@ -6,6 +6,7 @@ import (
 
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/config"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/generator"
+	"github.com/frankenstein-ai/frank-blog-content-generator/internal/git"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/llm"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/prompts"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/state"
@@ -63,12 +64,13 @@ func runMemos(cmd *cobra.Command, args []string) error {
 	}
 
 	gen := &generator.MemoGenerator{
-		LLM:        provider,
-		State:      store,
-		Templates:  tmpls,
-		SourceRepo: cfg.SourceRepo,
-		OutputDir:  outputDir,
-		DryRun:     cfg.DryRun,
+		LLM:           provider,
+		State:         store,
+		Templates:     tmpls,
+		SourceRepo:    cfg.SourceRepo,
+		OutputDir:     outputDir,
+		ReadmeContent: git.ReadREADME(cfg.SourceRepo),
+		DryRun:        cfg.DryRun,
 	}
 
 	results, err := gen.Generate(context.Background())

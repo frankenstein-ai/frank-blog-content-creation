@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -171,6 +172,19 @@ func GetCommit(repoPath string, hash string) (*Commit, error) {
 	return &commits[0], nil
 }
 
+// ReadREADME reads the README.md from a repository root.
+// Returns empty string if the file doesn't exist.
+func ReadREADME(repoPath string) string {
+	absPath, err := filepath.Abs(repoPath)
+	if err != nil {
+		return ""
+	}
+	data, err := os.ReadFile(filepath.Join(absPath, "README.md"))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
+}
 // GroupByWeek groups commits by ISO year-week.
 func GroupByWeek(commits []Commit) map[string][]Commit {
 	groups := make(map[string][]Commit)

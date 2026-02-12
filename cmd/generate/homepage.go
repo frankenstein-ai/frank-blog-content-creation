@@ -6,6 +6,7 @@ import (
 
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/config"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/generator"
+	"github.com/frankenstein-ai/frank-blog-content-generator/internal/git"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/llm"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/prompts"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/state"
@@ -19,6 +20,7 @@ var homepageCmd = &cobra.Command{
 }
 
 func init() {
+	homepageCmd.Flags().String("source-repo", "", "Path to source git repository for README context (env: FRANK_SOURCE_REPO)")
 	homepageCmd.Flags().String("notebooks-dir", "", "Directory containing notebooks")
 	homepageCmd.Flags().String("memos-dir", "", "Directory containing insight memos")
 	homepageCmd.Flags().String("output-file", "", "Output file for homepage")
@@ -64,14 +66,20 @@ func runHomepage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	var readmeContent string
+	if cfg.SourceRepo != "" {
+		readmeContent = git.ReadREADME(cfg.SourceRepo)
+	}
+
 	gen := &generator.HomepageGenerator{
-		LLM:          provider,
-		State:        store,
-		Templates:    tmpls,
-		NotebooksDir: notebooksDir,
-		MemosDir:     memosDir,
-		OutputFile:   outputFile,
-		DryRun:       cfg.DryRun,
+		LLM:           provider,
+		State:         store,
+		Templates:     tmpls,
+		NotebooksDir:  notebooksDir,
+		MemosDir:      memosDir,
+		OutputFile:    outputFile,
+		ReadmeContent: readmeContent,
+		DryRun:        cfg.DryRun,
 	}
 
 	result, err := gen.Generate(context.Background())

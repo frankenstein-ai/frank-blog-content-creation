@@ -14,12 +14,13 @@ import (
 )
 
 type MemoGenerator struct {
-	LLM        llm.Provider
-	State      *state.Store
-	Templates  *prompts.Templates
-	SourceRepo string
-	OutputDir  string
-	DryRun     bool
+	LLM           llm.Provider
+	State         *state.Store
+	Templates     *prompts.Templates
+	SourceRepo    string
+	OutputDir     string
+	ReadmeContent string
+	DryRun        bool
 }
 
 func (g *MemoGenerator) Generate(ctx context.Context) ([]GenerateResult, error) {
@@ -41,7 +42,7 @@ func (g *MemoGenerator) Generate(ctx context.Context) ([]GenerateResult, error) 
 	fmt.Printf("Found %d new commits for insight memos\n", len(commits))
 
 	repoName := git.RepoName(g.SourceRepo)
-	userPrompt := buildMemoUserPrompt(repoName, commits)
+	userPrompt := buildMemoUserPrompt(repoName, commits, g.ReadmeContent)
 
 	if g.DryRun {
 		fmt.Printf("[dry-run] Would analyze %d commits for insight memos\n", len(commits))
@@ -129,9 +130,12 @@ func (g *MemoGenerator) Generate(ctx context.Context) ([]GenerateResult, error) 
 	return results, nil
 }
 
-func buildMemoUserPrompt(repoName string, commits []git.Commit) string {
+func buildMemoUserPrompt(repoName string, commits []git.Commit, readmeContent string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Project: %s\n", repoName)
+	if readmeContent != "" {
+		fmt.Fprintf(&b, "\nProject description (from README):\n%s\n", readmeContent)
+	}
 	fmt.Fprintf(&b, "\nRecent commits (%d total):\n\n", len(commits))
 
 	for _, c := range commits {
