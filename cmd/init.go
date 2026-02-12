@@ -83,8 +83,18 @@ func runInit(cmd *cobra.Command, args []string) error {
 		if len(short) > 8 {
 			short = short[:8]
 		}
+		// Store parent hash so the exclusive range (parent..HEAD) includes the target commit
+		parentHash, err := git.GetParentHash(absRepo, commit.Hash)
+		if err != nil {
+			return fmt.Errorf("resolving parent commit: %w", err)
+		}
+		storeHash := parentHash
+		if storeHash == "" {
+			// Root commit — store empty so GetCommits returns all commits
+			storeHash = ""
+		}
 		for _, ct := range []string{"notebook", "memo"} {
-			if err := store.SetLastCommit(absRepo, ct, commit.Hash, commit.Timestamp); err != nil {
+			if err := store.SetLastCommit(absRepo, ct, storeHash, commit.Timestamp); err != nil {
 				return fmt.Errorf("setting state for %s: %w", ct, err)
 			}
 			fmt.Printf("Initialized %s → commit %s (%s)\n", ct, short, commit.Timestamp.Format("2006-01-02"))
@@ -105,7 +115,16 @@ func runInit(cmd *cobra.Command, args []string) error {
 		if len(short) > 8 {
 			short = short[:8]
 		}
-		if err := store.SetLastCommit(absRepo, "blog-post", commit.Hash, commit.Timestamp); err != nil {
+		// Store parent hash so the exclusive range includes the target commit
+		blogParent, err := git.GetParentHash(absRepo, commit.Hash)
+		if err != nil {
+			return fmt.Errorf("resolving parent commit: %w", err)
+		}
+		storeHash := blogParent
+		if storeHash == "" {
+			storeHash = ""
+		}
+		if err := store.SetLastCommit(absRepo, "blog-post", storeHash, commit.Timestamp); err != nil {
 			return fmt.Errorf("setting state for blog-post: %w", err)
 		}
 		fmt.Printf("Initialized blog-post → commit %s (%s)\n", short, commit.Timestamp.Format("2006-01-02"))

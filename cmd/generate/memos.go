@@ -22,6 +22,7 @@ var memosCmd = &cobra.Command{
 func init() {
 	memosCmd.Flags().String("source-repo", "", "Path to source git repository (env: FRANK_SOURCE_REPO)")
 	memosCmd.Flags().String("output-dir", "", "Output directory for memos (env: FRANK_MEMOS_DIR)")
+	memosCmd.Flags().String("period", "week", "Grouping period: day or week")
 }
 
 func runMemos(cmd *cobra.Command, args []string) error {
@@ -69,6 +70,7 @@ func runMemos(cmd *cobra.Command, args []string) error {
 		Templates:     tmpls,
 		SourceRepo:    cfg.SourceRepo,
 		OutputDir:     outputDir,
+		Period:        cfg.Period,
 		ReadmeContent: git.ReadREADME(cfg.SourceRepo),
 		DryRun:        cfg.DryRun,
 	}

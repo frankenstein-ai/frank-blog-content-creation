@@ -6,8 +6,8 @@ CLI tool that generates blog content from R&D git commits using LLMs. Built for 
 
 | Content type | Source | Description |
 |---|---|---|
-| **Notebooks** | git commits | Terse research summaries grouped by day or week |
-| **Insight Memos** | git commits | Durable knowledge distilled from a body of work |
+| **Notebooks** | git commits | Terse research summaries grouped by day or week, with code diff analysis |
+| **Insight Memos** | git commits | Durable knowledge distilled from a work period, with code diff analysis |
 | **Blog Posts** | notebooks + memos | Long-form posts for a technical audience |
 | **Homepage** | notebooks + memos | Up-to-date overview of latest research |
 
@@ -118,7 +118,7 @@ frank --version            Print version
 | `--notebooks-dir` | `FRANK_NOTEBOOKS_DIR` | `notes`, `blog-posts`, `homepage` |
 | `--memos-dir` | `FRANK_MEMOS_DIR` | `notes`, `blog-posts`, `homepage` |
 | `--output-file` | — | `homepage` |
-| `--period` | — | `notes`, `notebooks` (`day` or `week`) |
+| `--period` | — | `notes`, `notebooks`, `memos` (`day` or `week`) |
 
 ### API key env vars
 
@@ -134,9 +134,9 @@ frank --version            Print version
 ```
 Source repo (git commits)
         │
-        ├──► Notebooks  (grouped by day/week)
+        ├──► Notebooks  (grouped by day/week, with code diffs)
         │
-        └──► Insight Memos  (LLM identifies durable insights)
+        └──► Insight Memos  (grouped by day/week, with code diffs)
                     │
         ┌───────────┤
         │           │
@@ -146,7 +146,7 @@ Source repo (git commits)
 
 1. **Read commits** — `frank` shells out to `git log` on the source repo
 2. **Check state** — SQLite tracks the last processed commit per repo and content type, so only new commits are processed
-3. **Group and prompt** — Commits are grouped (by time period for notebooks) and sent to the LLM with an embedded prompt template
+3. **Group and fetch diffs** — Commits are grouped by time period, then each commit's full code diff and the project README are included as context for the LLM
 4. **Parse and write** — LLM output is parsed into structured markdown files following opinionated naming conventions
 5. **Update state** — The last processed commit is recorded so the next run picks up where this one left off
 

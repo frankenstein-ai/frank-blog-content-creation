@@ -6,6 +6,7 @@ import (
 
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/config"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/generator"
+	"github.com/frankenstein-ai/frank-blog-content-generator/internal/git"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/llm"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/prompts"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/state"
@@ -22,7 +23,7 @@ func init() {
 	notesCmd.Flags().String("source-repo", "", "Path to source git repository (env: FRANK_SOURCE_REPO)")
 	notesCmd.Flags().String("notebooks-dir", "", "Output directory for notebooks (env: FRANK_NOTEBOOKS_DIR)")
 	notesCmd.Flags().String("memos-dir", "", "Output directory for memos (env: FRANK_MEMOS_DIR)")
-	notesCmd.Flags().String("period", "week", "Grouping period for notebooks: day or week")
+	notesCmd.Flags().String("period", "week", "Grouping period: day or week")
 }
 
 func runNotes(cmd *cobra.Command, args []string) error {
@@ -75,15 +76,18 @@ func runNotes(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	readmeContent := git.ReadREADME(sourceRepo)
+
 	// Generate notebooks
 	notebookGen := &generator.NotebookGenerator{
-		LLM:        provider,
-		State:      store,
-		Templates:  tmpls,
-		SourceRepo: sourceRepo,
-		OutputDir:  notebooksDir,
-		Period:     cfg.Period,
-		DryRun:     cfg.DryRun,
+		LLM:           provider,
+		State:         store,
+		Templates:     tmpls,
+		SourceRepo:    sourceRepo,
+		OutputDir:     notebooksDir,
+		Period:        cfg.Period,
+		ReadmeContent: readmeContent,
+		DryRun:        cfg.DryRun,
 	}
 
 	notebooks, err := notebookGen.Generate(context.Background())
@@ -94,12 +98,14 @@ func runNotes(cmd *cobra.Command, args []string) error {
 
 	// Generate memos
 	memoGen := &generator.MemoGenerator{
-		LLM:        provider,
-		State:      store,
-		Templates:  tmpls,
-		SourceRepo: sourceRepo,
-		OutputDir:  memosDir,
-		DryRun:     cfg.DryRun,
+		LLM:           provider,
+		State:         store,
+		Templates:     tmpls,
+		SourceRepo:    sourceRepo,
+		OutputDir:     memosDir,
+		Period:        cfg.Period,
+		ReadmeContent: readmeContent,
+		DryRun:        cfg.DryRun,
 	}
 
 	memos, err := memoGen.Generate(context.Background())

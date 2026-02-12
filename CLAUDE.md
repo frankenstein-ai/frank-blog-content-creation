@@ -55,9 +55,9 @@ examples/
 
 - **Config resolution**: CLI flags > env vars > defaults. Env vars enable GitHub Actions compatibility. All `FRANK_`-prefixed except API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`).
 - **LLM providers**: `Provider` interface in `internal/llm/llm.go`, implementations for OpenAI, Anthropic, Ollama, and OpenRouter using raw `net/http` (no SDKs). Factory via `llm.New(providerName)`. Ollama uses the OpenAI-compatible API with no auth header. OpenRouter uses the OpenAI-compatible API at `https://openrouter.ai/api/v1/chat/completions`.
-- **Generators**: All follow the same pipeline — read state → get commits → group → call LLM → parse output → write files → update state.
+- **Generators**: Notebooks and memos group commits by time period (day/week), fetch code diffs for each commit within the group, and include the project README as context. Pipeline: read state → get commits → group by period → for each group: fetch diffs → call LLM → write file → update state.
 - **Prompts**: Embedded at compile time via `go:embed` in `internal/prompts/`. Templates in `.txt` files.
-- **State**: SQLite tracks last processed commit per (source_repo, content_type). DB file: `.frank-state.db`.
+- **State**: SQLite tracks last processed commit per (source_repo, content_type). DB file: `.frank-state.db`. The `init` command stores the parent of the specified commit so that the exclusive range naturally includes it.
 - **Dry-run mode**: Skips LLM provider creation entirely — no API keys required.
 
 ## Output File Naming Conventions

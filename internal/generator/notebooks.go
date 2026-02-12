@@ -77,11 +77,25 @@ func (g *NotebookGenerator) Generate(ctx context.Context) ([]GenerateResult, err
 	for _, key := range keys {
 		groupCommits := groups[key]
 
+		// Fetch diffs for all commits in this group
+		diffs := make(map[string]string)
+		for _, c := range groupCommits {
+			diff, err := git.GetCommitDiff(g.SourceRepo, c.Hash)
+			if err != nil {
+				shortHash := c.Hash
+				if len(shortHash) > 8 {
+					shortHash = shortHash[:8]
+				}
+				return nil, fmt.Errorf("getting diff for %s: %w", shortHash, err)
+			}
+			diffs[c.Hash] = diff
+		}
+
 		// Determine the month from the first commit in this group
 		month := groupCommits[0].Timestamp.Format("01")
 		year := groupCommits[0].Timestamp.Format("2006")
 
-		userPrompt := buildNotebookUserPrompt(repoName, key, groupCommits, g.ReadmeContent)
+		userPrompt := buildNotebookUserPrompt(repoName, key, groupCommits, diffs, g.ReadmeContent)
 
 		if g.DryRun {
 			fmt.Printf("[dry-run] Would generate notebook for %s (%d commits)\n", key, len(groupCommits))
@@ -146,18 +160,31 @@ func (g *NotebookGenerator) Generate(ctx context.Context) ([]GenerateResult, err
 	return results, nil
 }
 
-func buildNotebookUserPrompt(repoName, period string, commits []git.Commit, readmeContent string) string {
+func buildNotebookUserPrompt(repoName, period string, commits []git.Commit, diffs map[string]string, readmeContent string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Project: %s\n", repoName)
+	fmt.Fprintf(&b, "Period: %s\n", period)
+
 	if readmeContent != "" {
 		fmt.Fprintf(&b, "\nProject description (from README):\n%s\n", readmeContent)
 	}
-	fmt.Fprintf(&b, "Period: %s\n", period)
+
 	fmt.Fprintf(&b, "\nCommits (%d total):\n\n", len(commits))
 
+	// Budget for diff chars across all commits in the group
+	maxDiffPerCommit := 15000 / len(commits)
+	if maxDiffPerCommit < 2000 {
+		maxDiffPerCommit = 2000
+	}
+
 	for _, c := range commits {
+		shortHash := c.Hash
+		if len(shortHash) > 8 {
+			shortHash = shortHash[:8]
+		}
+
 		fmt.Fprintf(&b, "---\n")
-		fmt.Fprintf(&b, "Hash: %s\n", c.Hash[:8])
+		fmt.Fprintf(&b, "Hash: %s\n", shortHash)
 		fmt.Fprintf(&b, "Date: %s\n", c.Timestamp.Format("2006-01-02 15:04"))
 		fmt.Fprintf(&b, "Author: %s\n", c.Author)
 		fmt.Fprintf(&b, "Subject: %s\n", c.Subject)
@@ -170,10 +197,18 @@ func buildNotebookUserPrompt(repoName, period string, commits []git.Commit, read
 				fmt.Fprintf(&b, "  %s %s\n", f.Status, f.Path)
 			}
 		}
+
+		if diff, ok := diffs[c.Hash]; ok && diff != "" {
+			truncatedDiff := diff
+			if len(truncatedDiff) > maxDiffPerCommit {
+				truncatedDiff = truncatedDiff[:maxDiffPerCommit] + "\n... (diff truncated)"
+			}
+			fmt.Fprintf(&b, "Code changes (diff):\n```\n%s\n```\n", truncatedDiff)
+		}
 		fmt.Fprintf(&b, "---\n\n")
 	}
 
-	b.WriteString("Generate a research notebook for this work period.")
+	b.WriteString("Generate a research notebook synthesizing the work done in this period.")
 	return b.String()
 }
 
