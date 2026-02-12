@@ -10,6 +10,7 @@ var Cmd = &cobra.Command{
 func init() {
 	Cmd.AddCommand(notebooksCmd)
 	Cmd.AddCommand(memosCmd)
+	Cmd.AddCommand(notesCmd)
 	Cmd.AddCommand(blogPostsCmd)
 	Cmd.AddCommand(homepageCmd)
 }

@@ -42,20 +42,25 @@ go build -o frank .
   --blog-repo /path/to/lab-work \
   --blog-commit def5678
 
-# Generate notebooks (dry-run — no API key needed)
-./frank generate notebooks \
-  --source-repo /path/to/your-project \
-  --output-dir ./output/notebooks \
+# Generate notebooks + memos together (dry-run — no API key needed)
+./frank generate notes \
+  --notebooks-dir ./output/notebooks \
+  --memos-dir ./output/memos \
   --dry-run
 
-# Generate notebooks for real
+# Generate notebooks + memos for real (source repo read from state)
 export ANTHROPIC_API_KEY="sk-..."
+./frank generate notes \
+  --notebooks-dir ./output/notebooks \
+  --memos-dir ./output/memos \
+  --llm-provider anthropic
+
+# Or generate them individually:
 ./frank generate notebooks \
   --source-repo /path/to/your-project \
   --output-dir ./output/notebooks \
   --llm-provider anthropic
 
-# Generate insight memos
 ./frank generate memos \
   --source-repo /path/to/your-project \
   --output-dir ./output/memos \
@@ -82,6 +87,7 @@ export ANTHROPIC_API_KEY="sk-..."
 ## Commands
 
 ```
+frank generate notes       Generate notebooks and insight memos together
 frank generate notebooks   Generate research notebooks from git commits
 frank generate memos       Generate insight memos from git commits
 frank generate blog-posts  Generate blog posts from notebooks and memos
@@ -104,15 +110,15 @@ frank --version            Print version
 
 | Flag | Env var | Used by |
 |---|---|---|
-| `--source-repo` | `FRANK_SOURCE_REPO` | `init`, `notebooks`, `memos` |
+| `--source-repo` | `FRANK_SOURCE_REPO` | `init`, `notes`, `notebooks`, `memos` |
 | `--commit` | — | `init` (paired with `--source-repo`) |
 | `--blog-repo` | `FRANK_BLOG_REPO` | `init` |
 | `--blog-commit` | — | `init` (paired with `--blog-repo`) |
 | `--output-dir` | `FRANK_OUTPUT_DIR` | `notebooks`, `memos`, `blog-posts` |
-| `--notebooks-dir` | `FRANK_NOTEBOOKS_DIR` | `blog-posts`, `homepage` |
-| `--memos-dir` | `FRANK_MEMOS_DIR` | `blog-posts`, `homepage` |
+| `--notebooks-dir` | `FRANK_NOTEBOOKS_DIR` | `notes`, `blog-posts`, `homepage` |
+| `--memos-dir` | `FRANK_MEMOS_DIR` | `notes`, `blog-posts`, `homepage` |
 | `--output-file` | — | `homepage` |
-| `--period` | — | `notebooks` (`day` or `week`) |
+| `--period` | — | `notes`, `notebooks` (`day` or `week`) |
 
 ### API key env vars
 

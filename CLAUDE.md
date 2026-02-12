@@ -31,6 +31,7 @@ cmd/
   init.go                    # init subcommand (set starting commit)
   generate/
     generate.go              # generate parent command
+    notes.go                 # generate notebooks + memos together
     notebooks.go             # generate notebooks
     memos.go                 # generate memos
     blogposts.go             # generate blog-posts
@@ -70,6 +71,6 @@ examples/
 
 - No external LLM SDKs — raw HTTP with retry (3 attempts, exponential backoff)
 - No test framework yet
-- Config env vars: `FRANK_LLM_PROVIDER`, `FRANK_LLM_MODEL`, `FRANK_STATE_DB`, `FRANK_SOURCE_REPO`, `FRANK_OUTPUT_DIR`, `FRANK_NOTEBOOKS_DIR`, `FRANK_MEMOS_DIR`, `FRANK_BLOG_DIR`
+- Config env vars: `FRANK_LLM_PROVIDER`, `FRANK_LLM_MODEL`, `FRANK_STATE_DB`, `FRANK_SOURCE_REPO`, `FRANK_BLOG_REPO`, `FRANK_OUTPUT_DIR`, `FRANK_NOTEBOOKS_DIR`, `FRANK_MEMOS_DIR`, `FRANK_BLOG_DIR`
 - API key env vars: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`
 - Ollama env var: `OLLAMA_HOST` (default: `http://localhost:11434`)

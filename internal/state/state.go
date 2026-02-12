@@ -95,6 +95,18 @@ func (s *Store) RecordGeneration(sourceRepo, contentType, outputPath string, com
 	return err
 }
 
+func (s *Store) GetSourceRepo(contentType string) (string, error) {
+	var repo string
+	err := s.db.QueryRow(
+		"SELECT source_repo FROM processing_state WHERE content_type = ? LIMIT 1",
+		contentType,
+	).Scan(&repo)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return repo, err
+}
+
 func (s *Store) GetAllState() ([]map[string]string, error) {
 	rows, err := s.db.Query("SELECT source_repo, content_type, last_commit_hash, last_commit_timestamp, updated_at FROM processing_state ORDER BY updated_at DESC")
 	if err != nil {
