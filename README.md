@@ -35,10 +35,12 @@ go build -o frank .
 # Build
 go build -o frank .
 
-# Set a starting commit (skip old history)
+# Set starting commits (skip old history)
 ./frank init \
   --source-repo /path/to/your-project \
-  --commit abc1234
+  --commit abc1234 \
+  --blog-repo /path/to/lab-work \
+  --blog-commit def5678
 
 # Generate notebooks (dry-run — no API key needed)
 ./frank generate notebooks \
@@ -103,8 +105,9 @@ frank --version            Print version
 | Flag | Env var | Used by |
 |---|---|---|
 | `--source-repo` | `FRANK_SOURCE_REPO` | `init`, `notebooks`, `memos` |
-| `--commit` | — | `init` |
-| `--content-type` | — | `init` (optional: `notebook`, `memo`, or `blog-post`) |
+| `--commit` | — | `init` (paired with `--source-repo`) |
+| `--blog-repo` | `FRANK_BLOG_REPO` | `init` |
+| `--blog-commit` | — | `init` (paired with `--blog-repo`) |
 | `--output-dir` | `FRANK_OUTPUT_DIR` | `notebooks`, `memos`, `blog-posts` |
 | `--notebooks-dir` | `FRANK_NOTEBOOKS_DIR` | `blog-posts`, `homepage` |
 | `--memos-dir` | `FRANK_MEMOS_DIR` | `blog-posts`, `homepage` |

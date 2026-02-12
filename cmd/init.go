@@ -13,56 +13,53 @@ import (
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Set starting commit point for content generation",
-	Long:  "Initialize the processing state so that future generation runs only process commits after the specified one.",
-	RunE:  runInit,
+	Long: `Initialize the processing state so that future generation runs only process
+commits after the specified ones.
+
+Two independent tracks can be initialized together or separately:
+  - Source track (--source-repo + --commit): sets starting point for notebooks and memos
+  - Blog track (--blog-repo + --blog-commit): sets starting point for blog posts`,
+	RunE: runInit,
 }
 
 func init() {
 	initCmd.Flags().String("source-repo", "", "Path to source git repository (env: FRANK_SOURCE_REPO)")
-	initCmd.Flags().String("commit", "", "Git commit hash to mark as already processed")
-	initCmd.Flags().String("content-type", "", "Target a specific content type: notebook, memo, or blog-post (default: all)")
+	initCmd.Flags().String("commit", "", "Starting commit for notebook + memo generation")
+	initCmd.Flags().String("blog-repo", "", "Path to blog content git repository (env: FRANK_BLOG_REPO)")
+	initCmd.Flags().String("blog-commit", "", "Starting commit for blog-post generation")
 	rootCmd.AddCommand(initCmd)
 }
-
-var allContentTypes = []string{"notebook", "memo", "blog-post"}
 
 func runInit(cmd *cobra.Command, args []string) error {
 	sourceRepo := flagOrEnvInit(cmd, "source-repo", "FRANK_SOURCE_REPO")
 	commitHash, _ := cmd.Flags().GetString("commit")
-	contentType, _ := cmd.Flags().GetString("content-type")
+	blogRepo := flagOrEnvInit(cmd, "blog-repo", "FRANK_BLOG_REPO")
+	blogCommit, _ := cmd.Flags().GetString("blog-commit")
 	dbPath, _ := cmd.Flags().GetString("state-db")
 
-	if sourceRepo == "" {
-		return fmt.Errorf("--source-repo or FRANK_SOURCE_REPO is required")
-	}
-	if commitHash == "" {
-		return fmt.Errorf("--commit is required")
+	hasSource := sourceRepo != "" || commitHash != ""
+	hasBlog := blogRepo != "" || blogCommit != ""
+
+	if !hasSource && !hasBlog {
+		return fmt.Errorf("at least one track required: --source-repo + --commit, or --blog-repo + --blog-commit")
 	}
 
-	// Validate content-type if provided
-	if contentType != "" {
-		valid := false
-		for _, ct := range allContentTypes {
-			if ct == contentType {
-				valid = true
-				break
-			}
+	// Validate flags come in pairs
+	if hasSource {
+		if sourceRepo == "" {
+			return fmt.Errorf("--source-repo (or FRANK_SOURCE_REPO) is required when --commit is provided")
 		}
-		if !valid {
-			return fmt.Errorf("--content-type must be one of: notebook, memo, blog-post (got %q)", contentType)
+		if commitHash == "" {
+			return fmt.Errorf("--commit is required when --source-repo is provided")
 		}
 	}
-
-	// Resolve source repo to absolute path
-	absRepo, err := filepath.Abs(sourceRepo)
-	if err != nil {
-		return fmt.Errorf("resolving source repo path: %w", err)
-	}
-
-	// Validate the commit exists
-	commit, err := git.GetCommit(absRepo, commitHash)
-	if err != nil {
-		return err
+	if hasBlog {
+		if blogRepo == "" {
+			return fmt.Errorf("--blog-repo (or FRANK_BLOG_REPO) is required when --blog-commit is provided")
+		}
+		if blogCommit == "" {
+			return fmt.Errorf("--blog-commit is required when --blog-repo is provided")
+		}
 	}
 
 	// Open state DB
@@ -72,22 +69,46 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 	defer store.Close()
 
-	// Determine which content types to initialize
-	types := allContentTypes
-	if contentType != "" {
-		types = []string{contentType}
-	}
-
-	shortHash := commit.Hash
-	if len(shortHash) > 8 {
-		shortHash = shortHash[:8]
-	}
-
-	for _, ct := range types {
-		if err := store.SetLastCommit(absRepo, ct, commit.Hash, commit.Timestamp); err != nil {
-			return fmt.Errorf("setting state for %s: %w", ct, err)
+	// Source track: initialize notebook + memo
+	if hasSource {
+		absRepo, err := filepath.Abs(sourceRepo)
+		if err != nil {
+			return fmt.Errorf("resolving source repo path: %w", err)
 		}
-		fmt.Printf("Initialized %s → commit %s (%s)\n", ct, shortHash, commit.Timestamp.Format("2006-01-02"))
+		commit, err := git.GetCommit(absRepo, commitHash)
+		if err != nil {
+			return err
+		}
+		short := commit.Hash
+		if len(short) > 8 {
+			short = short[:8]
+		}
+		for _, ct := range []string{"notebook", "memo"} {
+			if err := store.SetLastCommit(absRepo, ct, commit.Hash, commit.Timestamp); err != nil {
+				return fmt.Errorf("setting state for %s: %w", ct, err)
+			}
+			fmt.Printf("Initialized %s → commit %s (%s)\n", ct, short, commit.Timestamp.Format("2006-01-02"))
+		}
+	}
+
+	// Blog track: initialize blog-post
+	if hasBlog {
+		absRepo, err := filepath.Abs(blogRepo)
+		if err != nil {
+			return fmt.Errorf("resolving blog repo path: %w", err)
+		}
+		commit, err := git.GetCommit(absRepo, blogCommit)
+		if err != nil {
+			return err
+		}
+		short := commit.Hash
+		if len(short) > 8 {
+			short = short[:8]
+		}
+		if err := store.SetLastCommit(absRepo, "blog-post", commit.Hash, commit.Timestamp); err != nil {
+			return fmt.Errorf("setting state for blog-post: %w", err)
+		}
+		fmt.Printf("Initialized blog-post → commit %s (%s)\n", short, commit.Timestamp.Format("2006-01-02"))
 	}
 
 	return nil
