@@ -66,7 +66,7 @@ export ANTHROPIC_API_KEY="sk-..."
   --output-dir ./output/memos \
   --llm-provider anthropic
 
-# Generate blog posts from existing notebooks and memos
+# Generate blog posts from new notebooks and memos (source repo read from state)
 ./frank generate blog-posts \
   --notebooks-dir ./output/notebooks \
   --memos-dir ./output/memos \
@@ -110,7 +110,7 @@ frank --version            Print version
 
 | Flag | Env var | Used by |
 |---|---|---|
-| `--source-repo` | `FRANK_SOURCE_REPO` | `init`, `notes`, `notebooks`, `memos` |
+| `--source-repo` | `FRANK_SOURCE_REPO` | `init`, `notes`, `notebooks`, `memos`, `blog-posts` |
 | `--commit` | — | `init` (paired with `--source-repo`) |
 | `--blog-repo` | `FRANK_BLOG_REPO` | `init` |
 | `--blog-commit` | — | `init` (paired with `--blog-repo`) |
@@ -145,7 +145,7 @@ Source repo (git commits)
 ```
 
 1. **Read commits** — `frank` shells out to `git log` on the source repo
-2. **Check state** — SQLite tracks the last processed commit per repo and content type, so only new commits are processed
+2. **Check state** — SQLite tracks the last processed commit per repo and content type, so only new commits are processed. Blog post generation also tracks commits in the blog content repo to discover only new notebooks and memos
 3. **Group and fetch diffs** — Commits are grouped by time period, then each commit's full code diff and the project README are included as context for the LLM
 4. **Parse and write** — LLM output is parsed into structured markdown files following opinionated naming conventions
 5. **Update state** — The last processed commit is recorded so the next run picks up where this one left off

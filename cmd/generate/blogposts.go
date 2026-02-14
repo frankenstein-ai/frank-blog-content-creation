@@ -6,7 +6,6 @@ import (
 
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/config"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/generator"
-	"github.com/frankenstein-ai/frank-blog-content-generator/internal/git"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/llm"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/prompts"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/state"
@@ -20,7 +19,7 @@ var blogPostsCmd = &cobra.Command{
 }
 
 func init() {
-	blogPostsCmd.Flags().String("source-repo", "", "Path to source git repository for README context (env: FRANK_SOURCE_REPO)")
+	blogPostsCmd.Flags().String("source-repo", "", "Path to blog content repository containing notebooks and memos (env: FRANK_SOURCE_REPO)")
 	blogPostsCmd.Flags().String("notebooks-dir", "", "Directory containing notebooks")
 	blogPostsCmd.Flags().String("memos-dir", "", "Directory containing insight memos")
 	blogPostsCmd.Flags().String("output-dir", "", "Output directory for blog posts (env: FRANK_BLOG_DIR)")
@@ -63,25 +62,29 @@ func runBlogPosts(cmd *cobra.Command, args []string) error {
 	}
 	defer store.Close()
 
+	// Resolve source repo: flag/env → state DB (from init --blog-repo)
+	sourceRepo := cfg.SourceRepo
+	if sourceRepo == "" {
+		sourceRepo, err = store.GetSourceRepo("blog-post")
+		if err != nil {
+			return fmt.Errorf("looking up source repo from state: %w", err)
+		}
+	}
+
 	tmpls, err := prompts.Load()
 	if err != nil {
 		return err
 	}
 
-	var readmeContent string
-	if cfg.SourceRepo != "" {
-		readmeContent = git.ReadREADME(cfg.SourceRepo)
-	}
-
 	gen := &generator.BlogPostGenerator{
-		LLM:           provider,
-		State:         store,
-		Templates:     tmpls,
-		NotebooksDir:  notebooksDir,
-		MemosDir:      memosDir,
-		OutputDir:     outputDir,
-		ReadmeContent: readmeContent,
-		DryRun:        cfg.DryRun,
+		LLM:          provider,
+		State:        store,
+		Templates:    tmpls,
+		SourceRepo:   sourceRepo,
+		NotebooksDir: notebooksDir,
+		MemosDir:     memosDir,
+		OutputDir:    outputDir,
+		DryRun:       cfg.DryRun,
 	}
 
 	results, err := gen.Generate(context.Background())

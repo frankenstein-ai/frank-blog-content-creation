@@ -9,31 +9,62 @@ import (
 	"strings"
 	"time"
 
+	"github.com/frankenstein-ai/frank-blog-content-generator/internal/git"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/llm"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/prompts"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/state"
 )
 
 type BlogPostGenerator struct {
-	LLM           llm.Provider
-	State         *state.Store
-	Templates     *prompts.Templates
-	NotebooksDir  string
-	MemosDir      string
-	OutputDir     string
-	ReadmeContent string
-	DryRun        bool
+	LLM          llm.Provider
+	State        *state.Store
+	Templates    *prompts.Templates
+	SourceRepo   string
+	NotebooksDir string
+	MemosDir     string
+	OutputDir    string
+	DryRun       bool
 }
 
 func (g *BlogPostGenerator) Generate(ctx context.Context) ([]GenerateResult, error) {
-	notebooks, err := readMarkdownFiles(g.NotebooksDir)
-	if err != nil {
-		return nil, fmt.Errorf("reading notebooks: %w", err)
-	}
+	var notebooks, memos map[string]string
+	var commits []git.Commit
+	var err error
 
-	memos, err := readMarkdownFiles(g.MemosDir)
-	if err != nil {
-		return nil, fmt.Errorf("reading memos: %w", err)
+	if g.SourceRepo != "" {
+		// Commit-based discovery: get checkpoint, read new commits, find new notebooks/memos
+		lastHash, err := g.State.GetLastCommit(g.SourceRepo, "blog-post")
+		if err != nil {
+			return nil, fmt.Errorf("getting last commit: %w", err)
+		}
+
+		commits, err = git.GetCommits(g.SourceRepo, lastHash)
+		if err != nil {
+			return nil, fmt.Errorf("getting commits from source repo: %w", err)
+		}
+
+		if len(commits) == 0 {
+			fmt.Println("No new commits since last run.")
+			return nil, nil
+		}
+
+		fmt.Printf("Found %d new commits in source repo\n", len(commits))
+
+		notebooks, memos, err = g.discoverNewFiles(commits)
+		if err != nil {
+			return nil, fmt.Errorf("discovering new files: %w", err)
+		}
+	} else {
+		// Fallback: read all files from directories
+		notebooks, err = readMarkdownFiles(g.NotebooksDir)
+		if err != nil {
+			return nil, fmt.Errorf("reading notebooks: %w", err)
+		}
+
+		memos, err = readMarkdownFiles(g.MemosDir)
+		if err != nil {
+			return nil, fmt.Errorf("reading memos: %w", err)
+		}
 	}
 
 	if len(notebooks) == 0 && len(memos) == 0 {
@@ -43,10 +74,13 @@ func (g *BlogPostGenerator) Generate(ctx context.Context) ([]GenerateResult, err
 
 	fmt.Printf("Found %d notebooks and %d memos\n", len(notebooks), len(memos))
 
-	userPrompt := buildBlogPostUserPrompt(notebooks, memos, g.ReadmeContent)
+	userPrompt := buildBlogPostUserPrompt(notebooks, memos)
 
 	if g.DryRun {
 		fmt.Printf("[dry-run] Would generate blog post from %d notebooks and %d memos\n", len(notebooks), len(memos))
+		if g.SourceRepo != "" && len(commits) > 0 {
+			fmt.Printf("[dry-run] Would update blog-post state to commit %s\n", commits[0].Hash[:8])
+		}
 		return nil, nil
 	}
 
@@ -74,8 +108,16 @@ func (g *BlogPostGenerator) Generate(ctx context.Context) ([]GenerateResult, err
 		return nil, fmt.Errorf("writing blog post: %w", err)
 	}
 
-	if err := g.State.RecordGeneration("blog", "blog-post", outPath, nil); err != nil {
+	if err := g.State.RecordGeneration(g.SourceRepo, "blog-post", outPath, nil); err != nil {
 		return nil, fmt.Errorf("recording generation: %w", err)
+	}
+
+	// Update state to newest commit
+	if g.SourceRepo != "" && len(commits) > 0 {
+		newest := commits[0]
+		if err := g.State.SetLastCommit(g.SourceRepo, "blog-post", newest.Hash, newest.Timestamp); err != nil {
+			return nil, fmt.Errorf("updating blog-post state: %w", err)
+		}
 	}
 
 	fmt.Printf("  Written: %s\n", outPath)
@@ -86,12 +128,47 @@ func (g *BlogPostGenerator) Generate(ctx context.Context) ([]GenerateResult, err
 	}}, nil
 }
 
-func buildBlogPostUserPrompt(notebooks, memos map[string]string, readmeContent string) string {
-	var b strings.Builder
-
-	if readmeContent != "" {
-		fmt.Fprintf(&b, "Project description (from README):\n%s\n\n", readmeContent)
+func (g *BlogPostGenerator) discoverNewFiles(commits []git.Commit) (notebooks, memos map[string]string, err error) {
+	absRepo, err := filepath.Abs(g.SourceRepo)
+	if err != nil {
+		return nil, nil, fmt.Errorf("resolving source repo path: %w", err)
 	}
+	absNotebooks, _ := filepath.Abs(g.NotebooksDir)
+	absMemos, _ := filepath.Abs(g.MemosDir)
+
+	seen := make(map[string]bool)
+	notebooks = make(map[string]string)
+	memos = make(map[string]string)
+
+	for _, c := range commits {
+		for _, f := range c.Files {
+			if f.Status != "A" && f.Status != "M" {
+				continue
+			}
+			if !strings.HasSuffix(f.Path, ".md") || seen[f.Path] {
+				continue
+			}
+			seen[f.Path] = true
+
+			absPath := filepath.Join(absRepo, f.Path)
+			content, err := os.ReadFile(absPath)
+			if err != nil {
+				continue // file might have been deleted in a later commit
+			}
+
+			name := filepath.Base(f.Path)
+			if absNotebooks != "" && strings.HasPrefix(absPath, absNotebooks) {
+				notebooks[name] = string(content)
+			} else if absMemos != "" && strings.HasPrefix(absPath, absMemos) {
+				memos[name] = string(content)
+			}
+		}
+	}
+	return notebooks, memos, nil
+}
+
+func buildBlogPostUserPrompt(notebooks, memos map[string]string) string {
+	var b strings.Builder
 
 	if len(notebooks) > 0 {
 		b.WriteString("Source notebooks:\n\n")
