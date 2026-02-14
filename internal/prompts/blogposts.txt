@@ -3,7 +3,7 @@ Your job is to write engaging, technical blog posts based on research notebooks 
 
 Output format -- start with Hugo frontmatter:
 +++
-date = 'YYYY-MM-DDTHH:MM:SS-03:00'
+date = '{{.Date}}'
 draft = false
 title = 'Your Title Here'
 +++

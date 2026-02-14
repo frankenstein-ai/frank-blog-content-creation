@@ -86,8 +86,10 @@ func (g *BlogPostGenerator) Generate(ctx context.Context) ([]GenerateResult, err
 
 	fmt.Println("Generating blog post...")
 
+	systemPrompt := strings.Replace(g.Templates.BlogPost, "{{.Date}}", time.Now().Format("2006-01-02T15:04:05-07:00"), 1)
+
 	content, err := g.LLM.Generate(ctx, llm.Request{
-		SystemPrompt: g.Templates.BlogPost,
+		SystemPrompt: systemPrompt,
 		UserPrompt:   userPrompt,
 		MaxTokens:    4096,
 		Temperature:  0.7,
