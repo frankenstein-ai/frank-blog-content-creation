@@ -3,6 +3,7 @@ package generate
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/config"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/generator"
@@ -36,8 +37,11 @@ func runHomepage(cmd *cobra.Command, args []string) error {
 	memosDir := cfg.MemosDir
 
 	outputFile, _ := cmd.Flags().GetString("output-file")
+	if outputFile == "" && cfg.HugoDir != "" {
+		outputFile = filepath.Join(cfg.HugoDir, "content", "_index.md")
+	}
 	if outputFile == "" {
-		return fmt.Errorf("--output-file is required")
+		return fmt.Errorf("--output-file is required (or set hugo_dir in .frank.toml)")
 	}
 
 	if notebooksDir == "" && memosDir == "" {

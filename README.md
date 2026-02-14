@@ -35,6 +35,17 @@ go build -o frank .
 # Build
 go build -o frank .
 
+# Create a config file (optional — avoids repeating flags)
+cat > .frank.toml <<'EOF'
+hugo_dir = "/path/to/hugo-blog"
+source_repo = "/path/to/your-project"
+notebooks_dir = "./output/notebooks"
+memos_dir = "./output/memos"
+blog_dir = "./output/posts"
+output_dir = "./output"
+llm_provider = "anthropic"
+EOF
+
 # Set starting commits (skip old history)
 ./frank init \
   --source-repo /path/to/your-project \
@@ -73,12 +84,14 @@ export ANTHROPIC_API_KEY="sk-..."
   --output-dir ./output/posts \
   --llm-provider anthropic
 
-# Generate homepage
+# Generate homepage (output-file derived from hugo_dir if set)
 ./frank generate homepage \
   --notebooks-dir ./output/notebooks \
   --memos-dir ./output/memos \
-  --output-file ./output/_index.md \
   --llm-provider anthropic
+
+# Update Hugo menu with latest blog post
+./frank update menu
 
 # Check processing state
 ./frank status
@@ -92,6 +105,7 @@ frank generate notebooks   Generate research notebooks from git commits
 frank generate memos       Generate insight memos from git commits
 frank generate blog-posts  Generate blog posts from notebooks and memos
 frank generate homepage    Generate homepage from notebooks and memos
+frank update menu          Update Hugo menu with the latest blog post
 frank init                 Set starting commit point for content generation
 frank status               Show last processed commit per source repo
 frank --version            Print version
@@ -104,6 +118,7 @@ frank --version            Print version
 | `--llm-provider` | `FRANK_LLM_PROVIDER` | LLM provider: `openai`, `anthropic`, `ollama`, or `openrouter` |
 | `--llm-model` | `FRANK_LLM_MODEL` | Model name (uses provider default if omitted) |
 | `--state-db` | `FRANK_STATE_DB` | Path to SQLite state file (default: `.frank-state.db`) |
+| `--hugo-dir` | `FRANK_HUGO_DIR` | Path to Hugo site directory |
 | `--dry-run` | — | Preview what would be generated without calling the LLM |
 
 ### Command-specific flags
@@ -117,7 +132,7 @@ frank --version            Print version
 | `--output-dir` | `FRANK_OUTPUT_DIR` | `notebooks`, `memos`, `blog-posts` |
 | `--notebooks-dir` | `FRANK_NOTEBOOKS_DIR` | `notes`, `blog-posts`, `homepage` |
 | `--memos-dir` | `FRANK_MEMOS_DIR` | `notes`, `blog-posts`, `homepage` |
-| `--output-file` | — | `homepage` |
+| `--output-file` | — | `homepage` (derived from `hugo_dir` when not set) |
 | `--period` | — | `notes`, `notebooks`, `memos` (`day` or `week`) |
 
 ### API key env vars
@@ -128,6 +143,25 @@ frank --version            Print version
 | Anthropic | `ANTHROPIC_API_KEY` |
 | Ollama | `OLLAMA_HOST` (optional, default: `http://localhost:11434`) |
 | OpenRouter | `OPENROUTER_API_KEY` |
+
+### Config file (`.frank.toml`)
+
+Place a `.frank.toml` in the project root to avoid repeating flags. Flat key=value format:
+
+```toml
+# .frank.toml
+hugo_dir = "/path/to/hugo-blog"
+source_repo = "/path/to/your-project"
+notebooks_dir = "./notebooks"
+memos_dir = "./memos"
+blog_dir = "./posts"
+output_dir = "./output"
+state_db = ".frank-state.db"
+llm_provider = "anthropic"
+llm_model = ""
+```
+
+Resolution order: **CLI flags > env vars > `.frank.toml` > defaults**
 
 ## How it works
 
@@ -142,6 +176,9 @@ Source repo (git commits)
         │           │
         ▼           ▼
    Blog Posts    Homepage
+        │
+        ▼
+   Hugo Menu  (frank update menu)
 ```
 
 1. **Read commits** — `frank` shells out to `git log` on the source repo
