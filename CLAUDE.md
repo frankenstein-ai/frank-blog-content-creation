@@ -39,6 +39,7 @@ cmd/
   update/
     update.go                # update parent command
     menu.go                  # update menu (hugo.toml)
+    home.go                  # update home (regenerate homepage from published posts)
 internal/
   config/                    # config resolution (flags > env vars > .frank.toml > defaults)
     config.go                # config struct and loaders
@@ -60,7 +61,7 @@ examples/
 ## Architecture & Key Patterns
 
 - **Config resolution**: CLI flags > env vars > `.frank.toml` > defaults. The `.frank.toml` file in the project root stores persistent paths (flat key=value TOML, no nested tables, zero new deps). Env vars enable GitHub Actions compatibility. All `FRANK_`-prefixed except API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`).
-- **Hugo integration**: `internal/hugo/` handles menu updates and post discovery. `frank update menu` finds the latest post and adds/replaces a "Latest:" entry in `hugo.toml`.
+- **Hugo integration**: `internal/hugo/` handles menu updates, post discovery, and homepage regeneration. `frank update menu` finds the latest post and adds/replaces a "Latest:" entry in `hugo.toml`. `frank update home` reads published blog posts and regenerates the homepage via LLM.
 - **LLM providers**: `Provider` interface in `internal/llm/llm.go`, implementations for OpenAI, Anthropic, Ollama, and OpenRouter using raw `net/http` (no SDKs). Factory via `llm.New(providerName)`. Ollama uses the OpenAI-compatible API with no auth header. OpenRouter uses the OpenAI-compatible API at `https://openrouter.ai/api/v1/chat/completions`.
 - **Generators**: Notebooks and memos group commits by time period (day/week), fetch code diffs for each commit within the group, and include the project README as context. Pipeline: read state → get commits → group by period → for each group: fetch diffs → call LLM → write file → update state.
 - **Prompts**: Embedded at compile time via `go:embed` in `internal/prompts/`. Templates in `.txt` files.

@@ -93,6 +93,9 @@ export ANTHROPIC_API_KEY="sk-..."
 # Update Hugo menu with latest blog post
 ./frank update menu
 
+# Regenerate homepage from published blog posts
+./frank update home
+
 # Check processing state
 ./frank status
 ```
@@ -106,6 +109,7 @@ frank generate memos       Generate insight memos from git commits
 frank generate blog-posts  Generate blog posts from notebooks and memos
 frank generate homepage    Generate homepage from notebooks and memos
 frank update menu          Update Hugo menu with the latest blog post
+frank update home          Regenerate homepage from published blog posts
 frank init                 Set starting commit point for content generation
 frank status               Show last processed commit per source repo
 frank --version            Print version
@@ -177,8 +181,9 @@ Source repo (git commits)
         ▼           ▼
    Blog Posts    Homepage
         │
-        ▼
-   Hugo Menu  (frank update menu)
+        ├──► Hugo Menu  (frank update menu)
+        │
+        └──► Hugo Home  (frank update home)
 ```
 
 1. **Read commits** — `frank` shells out to `git log` on the source repo

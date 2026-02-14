@@ -4,15 +4,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
 
 // Post holds metadata parsed from a Hugo post's TOML frontmatter.
 type Post struct {
-	Title string
-	Date  time.Time
-	Slug  string // filename without .md
+	Title   string
+	Date    time.Time
+	Slug    string // filename without .md
+	Content string // full file content including frontmatter
 }
 
 // FindLatestPost finds the most recently dated post in hugoDir/content/posts/.
@@ -50,6 +52,42 @@ func FindLatestPost(hugoDir string) (*Post, error) {
 		return nil, fmt.Errorf("no posts found in %s", postsDir)
 	}
 	return latest, nil
+}
+
+// ReadAllPosts reads all markdown posts from hugoDir/content/posts/, sorted by date (newest first).
+func ReadAllPosts(hugoDir string) ([]Post, error) {
+	postsDir := filepath.Join(hugoDir, "content", "posts")
+	entries, err := os.ReadDir(postsDir)
+	if err != nil {
+		return nil, fmt.Errorf("reading posts directory: %w", err)
+	}
+
+	var posts []Post
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+
+		data, err := os.ReadFile(filepath.Join(postsDir, e.Name()))
+		if err != nil {
+			continue
+		}
+
+		content := string(data)
+		title, date := parseTOMLFrontmatter(content)
+		if title == "" || date.IsZero() {
+			continue
+		}
+
+		slug := strings.TrimSuffix(e.Name(), ".md")
+		posts = append(posts, Post{Title: title, Date: date, Slug: slug, Content: content})
+	}
+
+	sort.Slice(posts, func(i, j int) bool {
+		return posts[i].Date.After(posts[j].Date)
+	})
+
+	return posts, nil
 }
 
 // parseTOMLFrontmatter extracts title and date from +++ delimited TOML frontmatter.
