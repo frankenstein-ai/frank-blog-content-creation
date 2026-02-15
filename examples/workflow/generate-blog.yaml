@@ -1,0 +1,106 @@
+# Frank AI — Generate Blog Posts, Update Menu & Homepage
+#
+# Drop this workflow into the repository where notebooks and memos are committed
+# (e.g., lab-work) to auto-generate blog posts, update the Hugo menu, and
+# regenerate the homepage.
+#
+# Setup:
+#   1. Copy this file to .github/workflows/generate-blog.yaml in your lab-work repo
+#   2. Set required secrets:
+#      - GH_PAT: GitHub PAT with repo scope (to push to blog repo)
+#      - ANTHROPIC_API_KEY or OPENAI_API_KEY or OPENROUTER_API_KEY
+#   3. (Optional) Set repository variables:
+#      - FRANK_LLM_PROVIDER: openai, anthropic, ollama, or openrouter (default: anthropic)
+#      - FRANK_LLM_MODEL: model name (uses provider default if empty)
+#   4. Edit the env block below to match your repo names and directory paths
+
+name: Generate Blog
+
+on:
+  schedule:
+    - cron: '0 7 * * *'  # Daily at 07:00 UTC (after notebooks/memos workflow)
+  workflow_dispatch:
+
+env:
+  FRANK_VERSION: 'latest'  # Pin to a specific version (e.g., v0.1.0) for reproducibility
+  FRANK_REPO: 'frankenstein-ai/frank-blog-content-creation'
+  BLOG_REPO: 'frankenstein-ai/frank-blog'  # Hugo blog repository
+  NOTEBOOKS_DIR: 'notebooks'                # Directory in this repo containing notebooks
+  MEMOS_DIR: 'insight_memos'                # Directory in this repo containing memos
+  BLOG_POSTS_DIR: 'content/posts'           # Directory in BLOG_REPO for blog posts
+  HUGO_DIR: 'blog'                          # Checkout path for the blog repo
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source repo (notebooks & memos)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout blog repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.BLOG_REPO }}
+          path: ${{ env.HUGO_DIR }}
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Install frank CLI
+        run: |
+          if [ "$FRANK_VERSION" = "latest" ]; then
+            gh release download --repo "$FRANK_REPO" --pattern 'frank_*_linux_amd64.tar.gz' --output frank.tar.gz
+          else
+            gh release download "$FRANK_VERSION" --repo "$FRANK_REPO" --pattern 'frank_*_linux_amd64.tar.gz' --output frank.tar.gz
+          fi
+          tar -xzf frank.tar.gz frank
+          chmod +x frank
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+
+      - name: Restore state DB
+        uses: actions/cache@v4
+        with:
+          path: .frank-state.db
+          key: frank-state-blog-${{ github.run_id }}
+          restore-keys: frank-state-blog-
+
+      - name: Generate blog posts
+        run: |
+          ./frank generate blog-posts \
+            --blog-source-repo . \
+            --notebooks-dir ./${{ env.NOTEBOOKS_DIR }} \
+            --memos-dir ./${{ env.MEMOS_DIR }} \
+            --output-dir ./${{ env.HUGO_DIR }}/${{ env.BLOG_POSTS_DIR }}
+        env:
+          FRANK_LLM_PROVIDER: ${{ vars.FRANK_LLM_PROVIDER || 'anthropic' }}
+          FRANK_LLM_MODEL: ${{ vars.FRANK_LLM_MODEL || '' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+      - name: Update Hugo menu
+        run: |
+          ./frank update menu --hugo-dir ./${{ env.HUGO_DIR }}
+
+      - name: Update homepage
+        run: |
+          ./frank update home --hugo-dir ./${{ env.HUGO_DIR }}
+        env:
+          FRANK_LLM_PROVIDER: ${{ vars.FRANK_LLM_PROVIDER || 'anthropic' }}
+          FRANK_LLM_MODEL: ${{ vars.FRANK_LLM_MODEL || '' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+      - name: Commit and push blog
+        run: |
+          cd ${{ env.HUGO_DIR }}
+          git config user.name "frank-bot"
+          git config user.email "frank-bot@frankenstein-ai.github.io"
+          git add -A
+          git diff --staged --quiet || git commit -m "Auto-generate blog posts and update homepage [skip ci]"
+          git push
