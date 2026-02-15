@@ -53,6 +53,7 @@ internal/
 examples/
   notebook/                  # reference notebook format
   insight_memos/             # reference memo format
+  workflow/                  # GitHub Actions workflow templates for source projects
 .github/workflows/
   generate.yaml              # GitHub Actions content generation workflow
   release.yaml               # GitHub Actions release workflow (GoReleaser)

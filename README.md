@@ -235,6 +235,34 @@ Required secrets: `GH_PAT`, `ANTHROPIC_API_KEY` (or `OPENAI_API_KEY` or `OPENROU
 
 Optional variables: `FRANK_LLM_PROVIDER`, `FRANK_LLM_MODEL`
 
+### Workflow templates
+
+Two reusable workflow templates are provided in `examples/workflow/` for setting up content generation in your own repositories:
+
+**`generate-notes.yaml`** — Notebooks & memos from any R&D project
+
+Drop this into your source project (e.g., `mobile-agents`). It runs daily, reads commits from the project itself, and pushes generated notebooks and memos to an output repo (e.g., `lab-work`).
+
+```
+Source project (.github/workflows/)  →  frank generate notebooks + memos  →  lab-work repo
+```
+
+**`generate-blog.yaml`** — Blog posts, menu & homepage updates
+
+Drop this into the repo where notebooks and memos are committed (e.g., `lab-work`). It runs one hour after the notes workflow, generates blog posts from new notebooks/memos, updates the Hugo menu, and regenerates the homepage.
+
+```
+lab-work (.github/workflows/)  →  frank generate blog-posts + update menu + update home  →  blog repo
+```
+
+**Setup for both:**
+
+1. Copy the template to `.github/workflows/` in the target repo
+2. Set secrets: `GH_PAT` + an LLM API key (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `OPENROUTER_API_KEY`)
+3. Edit the `env` block at the top of the workflow to match your repo names and directory paths
+4. (Optional) Set repo variables: `FRANK_LLM_PROVIDER`, `FRANK_LLM_MODEL`
+5. (Optional) Pin `FRANK_VERSION` to a specific release tag for reproducibility
+
 ## Tech stack
 
 - **Go** with [Cobra](https://github.com/spf13/cobra) for CLI
