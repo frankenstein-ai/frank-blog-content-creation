@@ -20,6 +20,7 @@ var blogPostsCmd = &cobra.Command{
 
 func init() {
 	blogPostsCmd.Flags().String("source-repo", "", "Path to blog content repository containing notebooks and memos (env: FRANK_SOURCE_REPO)")
+	blogPostsCmd.Flags().String("blog-source-repo", "", "Path to repository containing notebooks and memos for blog post generation (env: FRANK_BLOG_SOURCE_REPO)")
 	blogPostsCmd.Flags().String("notebooks-dir", "", "Directory containing notebooks")
 	blogPostsCmd.Flags().String("memos-dir", "", "Directory containing insight memos")
 	blogPostsCmd.Flags().String("output-dir", "", "Output directory for blog posts (env: FRANK_BLOG_DIR)")
@@ -62,8 +63,11 @@ func runBlogPosts(cmd *cobra.Command, args []string) error {
 	}
 	defer store.Close()
 
-	// Resolve source repo: flag/env → state DB (from init --blog-repo)
-	sourceRepo := cfg.SourceRepo
+	// Resolve source repo: blog-source-repo → source-repo → state DB (from init --blog-repo)
+	sourceRepo := cfg.BlogSourceRepo
+	if sourceRepo == "" {
+		sourceRepo = cfg.SourceRepo
+	}
 	if sourceRepo == "" {
 		sourceRepo, err = store.GetSourceRepo("blog-post")
 		if err != nil {

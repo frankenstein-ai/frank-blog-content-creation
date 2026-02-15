@@ -39,6 +39,7 @@ go build -o frank .
 cat > .frank.toml <<'EOF'
 hugo_dir = "/path/to/hugo-blog"
 source_repo = "/path/to/your-project"
+blog_source_repo = "/path/to/lab-work"
 notebooks_dir = "./output/notebooks"
 memos_dir = "./output/memos"
 blog_dir = "./output/posts"
@@ -130,6 +131,7 @@ frank --version            Print version
 | Flag | Env var | Used by |
 |---|---|---|
 | `--source-repo` | `FRANK_SOURCE_REPO` | `init`, `notes`, `notebooks`, `memos`, `blog-posts` |
+| `--blog-source-repo` | `FRANK_BLOG_SOURCE_REPO` | `blog-posts` (overrides `--source-repo` for blog generation) |
 | `--commit` | — | `init` (paired with `--source-repo`) |
 | `--blog-repo` | `FRANK_BLOG_REPO` | `init` |
 | `--blog-commit` | — | `init` (paired with `--blog-repo`) |
@@ -156,6 +158,7 @@ Place a `.frank.toml` in the project root to avoid repeating flags. Flat key=val
 # .frank.toml
 hugo_dir = "/path/to/hugo-blog"
 source_repo = "/path/to/your-project"
+blog_source_repo = "/path/to/lab-work"
 notebooks_dir = "./notebooks"
 memos_dir = "./memos"
 blog_dir = "./posts"

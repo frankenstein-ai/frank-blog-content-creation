@@ -4,6 +4,8 @@
 
 hugo_dir = "/path/to/hugo-blog"
 source_repo = "/path/to/your-project"
+# blog_source_repo overrides source_repo for blog post generation (reads notebooks/memos from this repo)
+blog_source_repo = ""
 notebooks_dir = "./notebooks"
 memos_dir = "./memos"
 blog_dir = "./posts"

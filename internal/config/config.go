@@ -12,8 +12,9 @@ type Config struct {
 	LLMModel    string
 	APIKey      string
 
-	SourceRepo   string
-	OutputDir    string
+	SourceRepo     string
+	BlogSourceRepo string
+	OutputDir      string
 	NotebooksDir string
 	MemosDir     string
 	BlogDir      string
@@ -39,6 +40,7 @@ func Load(cmd *cobra.Command) (*Config, error) {
 	cfg.DryRun, _ = cmd.Flags().GetBool("dry-run")
 
 	cfg.SourceRepo = flagOrEnvOrToml(cmd, "source-repo", "FRANK_SOURCE_REPO", toml["source_repo"])
+	cfg.BlogSourceRepo = flagOrEnvOrToml(cmd, "blog-source-repo", "FRANK_BLOG_SOURCE_REPO", toml["blog_source_repo"])
 	cfg.OutputDir = flagOrEnvOrToml(cmd, "output-dir", "FRANK_OUTPUT_DIR", toml["output_dir"])
 	cfg.NotebooksDir = flagOrEnvOrToml(cmd, "notebooks-dir", "FRANK_NOTEBOOKS_DIR", toml["notebooks_dir"])
 	cfg.MemosDir = flagOrEnvOrToml(cmd, "memos-dir", "FRANK_MEMOS_DIR", toml["memos_dir"])
