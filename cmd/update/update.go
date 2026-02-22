@@ -10,4 +10,5 @@ var Cmd = &cobra.Command{
 func init() {
 	Cmd.AddCommand(menuCmd)
 	Cmd.AddCommand(homeCmd)
+	Cmd.AddCommand(skillCmd)
 }

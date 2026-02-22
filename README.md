@@ -68,12 +68,14 @@ export ANTHROPIC_API_KEY="sk-..."
 ## Commands
 
 ```
-frank init                 Initialize frank for this project (set starting commit + generate config)
-frank generate blog-posts  Generate blog posts from git commits
-frank update menu          Update Hugo menu with the latest blog post
-frank update home          Regenerate homepage from published blog posts
-frank status               Show last processed commit
-frank --version            Print version
+frank init                              Initialize frank for this project (set starting commit + generate config)
+frank generate blog-posts               Generate blog posts from git commits
+frank update menu                       Update Hugo menu with the latest blog post
+frank update home                       Regenerate homepage from published blog posts
+frank update skill <name>               Download a skill definition from its upstream URL
+frank status                            Show last processed commit
+frank status update --commit <hash>     Move the last processed commit pointer
+frank --version                         Print version
 ```
 
 ### Global flags
@@ -90,7 +92,7 @@ frank --version            Print version
 
 | Flag | Env var | Used by |
 |---|---|---|
-| `--commit` | — | `init` (required — starting commit hash) |
+| `--commit` | — | `init` (required — starting commit hash), `status update` (required — target commit hash) |
 | `--period` | — | `blog-posts` (`day` or `week`, default: `week`) |
 
 ### API key env vars
@@ -114,6 +116,10 @@ llm_provider = "anthropic"
 llm_model = ""
 # day or week
 period = "week"
+# post-processing skills
+# skills = ["humanizer"]
+# upstream URLs for skills (used by `frank update skill <name>`)
+# skill_url_humanizer = "https://raw.githubusercontent.com/blader/humanizer/main/SKILL.md"
 ```
 
 Resolution order: **CLI flags > env vars > `.frank.toml` > defaults**

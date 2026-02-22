@@ -9,3 +9,5 @@ llm_model = ""
 period = "week"
 # ordered list of post-processing skills to run (from skills/ directory)
 # skills = ["humanizer"]
+# upstream URLs for skill definitions (used by `frank update skill <name>`)
+# skill_url_humanizer = "https://raw.githubusercontent.com/blader/humanizer/main/SKILL.md"
