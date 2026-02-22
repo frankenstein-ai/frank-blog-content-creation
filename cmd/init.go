@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/git"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/state"
@@ -32,10 +31,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	commitHash, _ := cmd.Flags().GetString("commit")
 	dbPath, _ := cmd.Flags().GetString("state-db")
 
-	sourceRepo, err := filepath.Abs(".")
-	if err != nil {
-		return fmt.Errorf("resolving source repo: %w", err)
-	}
+	sourceRepo := "."
 
 	commit, err := git.GetCommit(sourceRepo, commitHash)
 	if err != nil {

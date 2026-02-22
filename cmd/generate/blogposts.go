@@ -30,10 +30,7 @@ func runBlogPosts(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	sourceRepo, err := filepath.Abs(".")
-	if err != nil {
-		return fmt.Errorf("resolving source repo: %w", err)
-	}
+	sourceRepo := "."
 
 	if cfg.HugoDir == "" {
 		return fmt.Errorf("--hugo-dir, FRANK_HUGO_DIR, or hugo_dir in .frank.toml is required")
