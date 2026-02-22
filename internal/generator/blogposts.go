@@ -13,6 +13,7 @@ import (
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/hugo"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/llm"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/prompts"
+	"github.com/frankenstein-ai/frank-blog-content-generator/internal/skills"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/state"
 )
 
@@ -26,6 +27,7 @@ type BlogPostGenerator struct {
 	LLM           llm.Provider
 	State         *state.Store
 	Templates     *prompts.Templates
+	Skills        []skills.Skill
 	SourceRepo    string
 	OutputDir     string
 	Period        string // "day" or "week"
@@ -113,20 +115,22 @@ func (g *BlogPostGenerator) Generate(ctx context.Context) ([]GenerateResult, err
 			return nil, fmt.Errorf("generating blog post for %s: %w", key, err)
 		}
 
-		// Humanize: remove AI writing patterns
-		fmt.Printf("  Humanizing blog post for %s...\n", key)
-		frontmatter, body := hugo.SplitFrontmatter(content)
-		humanized, err := g.LLM.Generate(ctx, llm.Request{
-			SystemPrompt: g.Templates.Humanizer,
-			UserPrompt:   body,
-			MaxTokens:    4096,
-			Temperature:  0.4,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("humanizing blog post for %s: %w", key, err)
+		// Run post-processing skills
+		for _, skill := range g.Skills {
+			fmt.Printf("  Running skill '%s' on blog post for %s...\n", skill.Name, key)
+			frontmatter, body := hugo.SplitFrontmatter(content)
+			processed, err := g.LLM.Generate(ctx, llm.Request{
+				SystemPrompt: skill.Prompt,
+				UserPrompt:   body,
+				MaxTokens:    4096,
+				Temperature:  0.4,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("skill '%s' for %s: %w", skill.Name, key, err)
+			}
+			processed = hugo.SanitizeLLMOutput(processed)
+			content = frontmatter + "\n" + strings.TrimSpace(processed) + "\n"
 		}
-		humanized = hugo.SanitizeLLMOutput(humanized)
-		content = frontmatter + "\n" + strings.TrimSpace(humanized) + "\n"
 
 		slug := extractSlug(content)
 		datePrefix := groupCommits[0].Timestamp.Format("2006-01-02")

@@ -10,6 +10,7 @@ import (
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/git"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/llm"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/prompts"
+	"github.com/frankenstein-ai/frank-blog-content-generator/internal/skills"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/state"
 	"github.com/spf13/cobra"
 )
@@ -61,10 +62,20 @@ func runBlogPosts(cmd *cobra.Command, args []string) error {
 
 	readmeContent := git.ReadREADME(sourceRepo)
 
+	var loadedSkills []skills.Skill
+	if !cfg.DryRun && len(cfg.Skills) > 0 {
+		loadedSkills, err = skills.Load("skills", cfg.Skills)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Loaded %d skill(s): %v\n", len(loadedSkills), cfg.Skills)
+	}
+
 	gen := &generator.BlogPostGenerator{
 		LLM:           provider,
 		State:         store,
 		Templates:     tmpls,
+		Skills:        loadedSkills,
 		SourceRepo:    sourceRepo,
 		OutputDir:     outputDir,
 		Period:        cfg.Period,

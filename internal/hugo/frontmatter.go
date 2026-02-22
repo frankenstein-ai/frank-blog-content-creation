@@ -20,21 +20,24 @@ func StripFrontmatter(content string) string {
 	return body
 }
 
-// SanitizeLLMOutput extracts clean markdown from LLM output by removing code fences,
-// preamble text, and trailing conversational text.
+// SanitizeLLMOutput extracts clean markdown from LLM output by removing
+// wrapper code fences that LLMs sometimes add around their entire response.
+// Only strips fences when the output starts with ``` (after trimming), so
+// embedded code blocks within the content are preserved.
 func SanitizeLLMOutput(s string) string {
-	// If there's a code fence, extract its content
-	if startIdx := strings.Index(s, "```"); startIdx >= 0 {
-		after := s[startIdx+3:]
-		// Skip the language tag line (```markdown, ```md, etc.)
-		if nlIdx := strings.Index(after, "\n"); nlIdx >= 0 {
-			after = after[nlIdx+1:]
-		}
-		// Find closing fence
-		if endIdx := strings.LastIndex(after, "```"); endIdx >= 0 {
-			return strings.TrimSpace(after[:endIdx])
-		}
-		return strings.TrimSpace(after)
+	trimmed := strings.TrimSpace(s)
+	// Only strip if the output starts with a code fence (wrapper fence)
+	if !strings.HasPrefix(trimmed, "```") {
+		return trimmed
 	}
-	return strings.TrimSpace(s)
+	// Skip the opening fence and language tag line (```markdown, ```md, etc.)
+	after := trimmed[3:]
+	if nlIdx := strings.Index(after, "\n"); nlIdx >= 0 {
+		after = after[nlIdx+1:]
+	}
+	// Find closing fence at the end
+	if endIdx := strings.LastIndex(after, "```"); endIdx >= 0 {
+		return strings.TrimSpace(after[:endIdx])
+	}
+	return strings.TrimSpace(after)
 }

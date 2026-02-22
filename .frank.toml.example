@@ -7,3 +7,5 @@ llm_provider = "anthropic"
 llm_model = ""
 # day or week
 period = "week"
+# ordered list of post-processing skills to run (from skills/ directory)
+# skills = ["humanizer"]

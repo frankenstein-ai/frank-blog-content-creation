@@ -17,6 +17,7 @@ type Config struct {
 	StateDB string
 	Period  string
 	DryRun  bool
+	Skills  []string
 }
 
 // Load resolves config from CLI flags > env vars > .frank.toml > defaults.
@@ -28,13 +29,14 @@ func Load(cmd *cobra.Command) (*Config, error) {
 
 	cfg := &Config{}
 
-	cfg.LLMProvider = flagOrEnvOrToml(cmd, "llm-provider", "FRANK_LLM_PROVIDER", toml["llm_provider"])
-	cfg.LLMModel = flagOrEnvOrToml(cmd, "llm-model", "FRANK_LLM_MODEL", toml["llm_model"])
-	cfg.StateDB = flagOrEnvOrTomlDefault(cmd, "state-db", "FRANK_STATE_DB", toml["state_db"], ".frank-state.db")
+	cfg.LLMProvider = flagOrEnvOrToml(cmd, "llm-provider", "FRANK_LLM_PROVIDER", toml.Values["llm_provider"])
+	cfg.LLMModel = flagOrEnvOrToml(cmd, "llm-model", "FRANK_LLM_MODEL", toml.Values["llm_model"])
+	cfg.StateDB = flagOrEnvOrTomlDefault(cmd, "state-db", "FRANK_STATE_DB", toml.Values["state_db"], ".frank-state.db")
 	cfg.DryRun, _ = cmd.Flags().GetBool("dry-run")
 
-	cfg.HugoDir = flagOrEnvOrToml(cmd, "hugo-dir", "FRANK_HUGO_DIR", toml["hugo_dir"])
-	cfg.Period = flagOrEnvOrTomlDefault(cmd, "period", "", toml["period"], "week")
+	cfg.HugoDir = flagOrEnvOrToml(cmd, "hugo-dir", "FRANK_HUGO_DIR", toml.Values["hugo_dir"])
+	cfg.Period = flagOrEnvOrTomlDefault(cmd, "period", "", toml.Values["period"], "week")
+	cfg.Skills = toml.Skills
 
 	// Resolve API key based on provider
 	switch cfg.LLMProvider {
