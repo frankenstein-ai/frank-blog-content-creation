@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/git"
+	"github.com/frankenstein-ai/frank-blog-content-generator/internal/hugo"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/llm"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/prompts"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/state"
@@ -111,6 +112,21 @@ func (g *BlogPostGenerator) Generate(ctx context.Context) ([]GenerateResult, err
 		if err != nil {
 			return nil, fmt.Errorf("generating blog post for %s: %w", key, err)
 		}
+
+		// Humanize: remove AI writing patterns
+		fmt.Printf("  Humanizing blog post for %s...\n", key)
+		frontmatter, body := hugo.SplitFrontmatter(content)
+		humanized, err := g.LLM.Generate(ctx, llm.Request{
+			SystemPrompt: g.Templates.Humanizer,
+			UserPrompt:   body,
+			MaxTokens:    4096,
+			Temperature:  0.4,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("humanizing blog post for %s: %w", key, err)
+		}
+		humanized = hugo.SanitizeLLMOutput(humanized)
+		content = frontmatter + "\n" + strings.TrimSpace(humanized) + "\n"
 
 		slug := extractSlug(content)
 		datePrefix := groupCommits[0].Timestamp.Format("2006-01-02")

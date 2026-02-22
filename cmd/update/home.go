@@ -68,7 +68,7 @@ func runHome(cmd *cobra.Command, args []string) error {
 	// Read current homepage and split frontmatter from body
 	homepagePath := filepath.Join(cfg.HugoDir, "content", "_index.md")
 	currentHomepage, _ := os.ReadFile(homepagePath)
-	frontmatter, currentBody := splitFrontmatter(string(currentHomepage))
+	frontmatter, currentBody := hugo.SplitFrontmatter(string(currentHomepage))
 
 	// Read published blog posts
 	posts, err := hugo.ReadAllPosts(cfg.HugoDir)
@@ -81,7 +81,7 @@ func runHome(cmd *cobra.Command, args []string) error {
 	for _, p := range posts {
 		postSummaries.WriteString(fmt.Sprintf("- Title: %s\n  Date: %s\n  Slug: %s\n  Link: /posts/%s\n",
 			p.Title, p.Date.Format("2006-01-02"), p.Slug, p.Slug))
-		body := stripFrontmatter(p.Content)
+		body := hugo.StripFrontmatter(p.Content)
 		words := strings.Fields(body)
 		if len(words) > 200 {
 			words = words[:200]
@@ -115,9 +115,9 @@ func runHome(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	body := sanitizeLLMOutput(result)
+	body := hugo.SanitizeLLMOutput(result)
 	// Strip any frontmatter the LLM may have included despite instructions
-	_, strippedBody := splitFrontmatter(body)
+	_, strippedBody := hugo.SplitFrontmatter(body)
 	if strippedBody != "" {
 		body = strippedBody
 	}
@@ -133,39 +133,3 @@ func runHome(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// splitFrontmatter splits a Hugo file into frontmatter (including +++ delimiters)
-// and the body content after it.
-func splitFrontmatter(content string) (frontmatter, body string) {
-	parts := strings.SplitN(content, "+++", 3)
-	if len(parts) == 3 {
-		frontmatter = "+++" + parts[1] + "+++\n"
-		body = strings.TrimSpace(parts[2])
-		return
-	}
-	return "", content
-}
-
-// stripFrontmatter removes +++ delimited TOML frontmatter from content.
-func stripFrontmatter(content string) string {
-	_, body := splitFrontmatter(content)
-	return body
-}
-
-// sanitizeLLMOutput extracts clean markdown from LLM output by removing code fences,
-// preamble text, and trailing conversational text.
-func sanitizeLLMOutput(s string) string {
-	// If there's a code fence, extract its content
-	if startIdx := strings.Index(s, "```"); startIdx >= 0 {
-		after := s[startIdx+3:]
-		// Skip the language tag line (```markdown, ```md, etc.)
-		if nlIdx := strings.Index(after, "\n"); nlIdx >= 0 {
-			after = after[nlIdx+1:]
-		}
-		// Find closing fence
-		if endIdx := strings.LastIndex(after, "```"); endIdx >= 0 {
-			return strings.TrimSpace(after[:endIdx])
-		}
-		return strings.TrimSpace(after)
-	}
-	return strings.TrimSpace(s)
-}
