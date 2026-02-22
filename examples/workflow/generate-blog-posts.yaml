@@ -1,0 +1,88 @@
+# Example GitHub Actions workflow for frank blog post generation.
+# Drop this into your project's .github/workflows/ directory.
+#
+# Prerequisites:
+#   - Secrets: GH_PAT, ANTHROPIC_API_KEY (or OPENAI_API_KEY / OPENROUTER_API_KEY)
+#   - Optional variables: FRANK_LLM_PROVIDER, FRANK_LLM_MODEL, FRANK_VERSION
+
+name: Generate Blog Posts
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly on Monday at 06:00 UTC
+  workflow_dispatch:
+
+# Edit these to match your setup
+env:
+  BLOG_REPO: your-org/your-blog       # GitHub repo for the Hugo blog
+  BLOG_PATH: blog                      # Checkout path for the blog repo
+  FRANK_VERSION: latest                # Pin to a release tag for reproducibility
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    env:
+      FRANK_HUGO_DIR: ./${{ env.BLOG_PATH }}
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout blog
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.BLOG_REPO }}
+          path: ${{ env.BLOG_PATH }}
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Download frank CLI
+        run: |
+          if [ "$FRANK_VERSION" = "latest" ]; then
+            gh release download --repo frankenstein-ai/frank-blog-content-generator --pattern 'frank_*_linux_amd64.tar.gz' --output frank.tar.gz
+          else
+            gh release download "$FRANK_VERSION" --repo frankenstein-ai/frank-blog-content-generator --pattern 'frank_*_linux_amd64.tar.gz' --output frank.tar.gz
+          fi
+          tar xzf frank.tar.gz frank
+          chmod +x frank
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+
+      - name: Restore state DB
+        uses: actions/cache@v4
+        with:
+          path: .frank-state.db
+          key: frank-state-${{ github.run_id }}
+          restore-keys: frank-state-
+
+      - name: Generate blog posts
+        run: ./frank generate blog-posts --period week
+        env:
+          FRANK_LLM_PROVIDER: ${{ vars.FRANK_LLM_PROVIDER || 'anthropic' }}
+          FRANK_LLM_MODEL: ${{ vars.FRANK_LLM_MODEL || '' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+      - name: Update menu and homepage
+        run: |
+          ./frank update menu
+          ./frank update home
+        env:
+          FRANK_LLM_PROVIDER: ${{ vars.FRANK_LLM_PROVIDER || 'anthropic' }}
+          FRANK_LLM_MODEL: ${{ vars.FRANK_LLM_MODEL || '' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+      - name: Commit and push blog
+        run: |
+          cd ${{ env.BLOG_PATH }}
+          git config user.name "frank-bot"
+          git config user.email "frank-bot@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "Auto-generate blog posts [skip ci]"
+          git push

@@ -1,15 +1,9 @@
 # .frank.toml — persistent config for frank CLI
-# Copy to .frank.toml and edit paths for your setup.
 # Resolution order: CLI flags > env vars > .frank.toml > defaults
 
 hugo_dir = "/path/to/hugo-blog"
-source_repo = "/path/to/your-project"
-# blog_source_repo overrides source_repo for blog post generation (reads notebooks/memos from this repo)
-blog_source_repo = ""
-notebooks_dir = "./notebooks"
-memos_dir = "./memos"
-blog_dir = "./posts"
-output_dir = "./output"
 state_db = ".frank-state.db"
 llm_provider = "anthropic"
 llm_model = ""
+# day or week
+period = "week"

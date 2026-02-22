@@ -3,9 +3,11 @@ package generate
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/config"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/generator"
+	"github.com/frankenstein-ai/frank-blog-content-generator/internal/git"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/llm"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/prompts"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/state"
@@ -14,16 +16,12 @@ import (
 
 var blogPostsCmd = &cobra.Command{
 	Use:   "blog-posts",
-	Short: "Generate blog posts from notebooks and memos",
+	Short: "Generate blog posts from git commits",
 	RunE:  runBlogPosts,
 }
 
 func init() {
-	blogPostsCmd.Flags().String("source-repo", "", "Path to blog content repository containing notebooks and memos (env: FRANK_SOURCE_REPO)")
-	blogPostsCmd.Flags().String("blog-source-repo", "", "Path to repository containing notebooks and memos for blog post generation (env: FRANK_BLOG_SOURCE_REPO)")
-	blogPostsCmd.Flags().String("notebooks-dir", "", "Directory containing notebooks")
-	blogPostsCmd.Flags().String("memos-dir", "", "Directory containing insight memos")
-	blogPostsCmd.Flags().String("output-dir", "", "Output directory for blog posts (env: FRANK_BLOG_DIR)")
+	blogPostsCmd.Flags().String("period", "week", "Grouping period for commits: 'day' or 'week'")
 }
 
 func runBlogPosts(cmd *cobra.Command, args []string) error {
@@ -32,19 +30,15 @@ func runBlogPosts(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	notebooksDir := cfg.NotebooksDir
-	memosDir := cfg.MemosDir
-	outputDir := cfg.BlogDir
-	if outputDir == "" {
-		outputDir = cfg.OutputDir
+	sourceRepo, err := filepath.Abs(".")
+	if err != nil {
+		return fmt.Errorf("resolving source repo: %w", err)
 	}
 
-	if notebooksDir == "" && memosDir == "" {
-		return fmt.Errorf("at least one of --notebooks-dir or --memos-dir is required")
+	if cfg.HugoDir == "" {
+		return fmt.Errorf("--hugo-dir, FRANK_HUGO_DIR, or hugo_dir in .frank.toml is required")
 	}
-	if outputDir == "" {
-		return fmt.Errorf("--output-dir or FRANK_BLOG_DIR is required")
-	}
+	outputDir := filepath.Join(cfg.HugoDir, "content", "posts")
 
 	var provider llm.Provider
 	if !cfg.DryRun {
@@ -63,32 +57,22 @@ func runBlogPosts(cmd *cobra.Command, args []string) error {
 	}
 	defer store.Close()
 
-	// Resolve source repo: blog-source-repo → source-repo → state DB (from init --blog-repo)
-	sourceRepo := cfg.BlogSourceRepo
-	if sourceRepo == "" {
-		sourceRepo = cfg.SourceRepo
-	}
-	if sourceRepo == "" {
-		sourceRepo, err = store.GetSourceRepo("blog-post")
-		if err != nil {
-			return fmt.Errorf("looking up source repo from state: %w", err)
-		}
-	}
-
 	tmpls, err := prompts.Load()
 	if err != nil {
 		return err
 	}
 
+	readmeContent := git.ReadREADME(sourceRepo)
+
 	gen := &generator.BlogPostGenerator{
-		LLM:          provider,
-		State:        store,
-		Templates:    tmpls,
-		SourceRepo:   sourceRepo,
-		NotebooksDir: notebooksDir,
-		MemosDir:     memosDir,
-		OutputDir:    outputDir,
-		DryRun:       cfg.DryRun,
+		LLM:           provider,
+		State:         store,
+		Templates:     tmpls,
+		SourceRepo:    sourceRepo,
+		OutputDir:     outputDir,
+		Period:        cfg.Period,
+		ReadmeContent: readmeContent,
+		DryRun:        cfg.DryRun,
 	}
 
 	results, err := gen.Generate(context.Background())

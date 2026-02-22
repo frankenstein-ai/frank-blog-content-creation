@@ -90,10 +90,7 @@ func runHome(cmd *cobra.Command, args []string) error {
 	}
 
 	// Read README for project context
-	var readmeContent string
-	if cfg.SourceRepo != "" {
-		readmeContent = git.ReadREADME(cfg.SourceRepo)
-	}
+	readmeContent := git.ReadREADME(".")
 
 	// Build user prompt
 	var userPrompt strings.Builder

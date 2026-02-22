@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
-	"time"
 
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/git"
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/llm"
@@ -15,206 +15,190 @@ import (
 	"github.com/frankenstein-ai/frank-blog-content-generator/internal/state"
 )
 
+type GenerateResult struct {
+	OutputPath string
+	Content    string
+	Commits    []string
+}
+
 type BlogPostGenerator struct {
-	LLM          llm.Provider
-	State        *state.Store
-	Templates    *prompts.Templates
-	SourceRepo   string
-	NotebooksDir string
-	MemosDir     string
-	OutputDir    string
-	DryRun       bool
+	LLM           llm.Provider
+	State         *state.Store
+	Templates     *prompts.Templates
+	SourceRepo    string
+	OutputDir     string
+	Period        string // "day" or "week"
+	ReadmeContent string
+	DryRun        bool
 }
 
 func (g *BlogPostGenerator) Generate(ctx context.Context) ([]GenerateResult, error) {
-	var notebooks, memos map[string]string
-	var commits []git.Commit
-	var err error
+	repoName := git.RepoName(g.SourceRepo)
 
-	if g.SourceRepo != "" {
-		// Commit-based discovery: get checkpoint, read new commits, find new notebooks/memos
-		lastHash, err := g.State.GetLastCommit(g.SourceRepo, "blog-post")
-		if err != nil {
-			return nil, fmt.Errorf("getting last commit: %w", err)
-		}
-
-		commits, err = git.GetCommits(g.SourceRepo, lastHash)
-		if err != nil {
-			return nil, fmt.Errorf("getting commits from source repo: %w", err)
-		}
-
-		if len(commits) == 0 {
-			fmt.Println("No new commits since last run.")
-			return nil, nil
-		}
-
-		fmt.Printf("Found %d new commits in source repo\n", len(commits))
-
-		notebooks, memos, err = g.discoverNewFiles(commits)
-		if err != nil {
-			return nil, fmt.Errorf("discovering new files: %w", err)
-		}
-	} else {
-		// Fallback: read all files from directories
-		notebooks, err = readMarkdownFiles(g.NotebooksDir)
-		if err != nil {
-			return nil, fmt.Errorf("reading notebooks: %w", err)
-		}
-
-		memos, err = readMarkdownFiles(g.MemosDir)
-		if err != nil {
-			return nil, fmt.Errorf("reading memos: %w", err)
-		}
-	}
-
-	if len(notebooks) == 0 && len(memos) == 0 {
-		fmt.Println("No notebooks or memos found to generate blog posts from.")
-		return nil, nil
-	}
-
-	fmt.Printf("Found %d notebooks and %d memos\n", len(notebooks), len(memos))
-
-	userPrompt := buildBlogPostUserPrompt(notebooks, memos)
-
-	if g.DryRun {
-		fmt.Printf("[dry-run] Would generate blog post from %d notebooks and %d memos\n", len(notebooks), len(memos))
-		if g.SourceRepo != "" && len(commits) > 0 {
-			fmt.Printf("[dry-run] Would update blog-post state to commit %s\n", commits[0].Hash[:8])
-		}
-		return nil, nil
-	}
-
-	fmt.Println("Generating blog post...")
-
-	systemPrompt := strings.Replace(g.Templates.BlogPost, "{{.Date}}", time.Now().Format("2006-01-02T15:04:05-07:00"), 1)
-
-	content, err := g.LLM.Generate(ctx, llm.Request{
-		SystemPrompt: systemPrompt,
-		UserPrompt:   userPrompt,
-		MaxTokens:    4096,
-		Temperature:  0.7,
-	})
+	lastHash, err := g.State.GetLastCommit(g.SourceRepo, "blog-post")
 	if err != nil {
-		return nil, fmt.Errorf("generating blog post: %w", err)
+		return nil, fmt.Errorf("getting last commit: %w", err)
 	}
+
+	commits, err := git.GetCommits(g.SourceRepo, lastHash)
+	if err != nil {
+		return nil, fmt.Errorf("reading commits: %w", err)
+	}
+
+	if len(commits) == 0 {
+		fmt.Println("No new commits to process for blog posts.")
+		return nil, nil
+	}
+
+	fmt.Printf("Found %d new commits for blog posts\n", len(commits))
+
+	var groups map[string][]git.Commit
+	switch g.Period {
+	case "day":
+		groups = git.GroupByDay(commits)
+	default:
+		groups = git.GroupByWeek(commits)
+	}
+
+	keys := make([]string, 0, len(groups))
+	for k := range groups {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
 
 	if err := os.MkdirAll(g.OutputDir, 0o755); err != nil {
 		return nil, fmt.Errorf("creating output dir: %w", err)
 	}
 
-	slug := extractSlug(content)
-	filename := fmt.Sprintf("%s-%s.md", time.Now().Format("2006-01-02"), slug)
-	outPath := filepath.Join(g.OutputDir, filename)
+	var results []GenerateResult
+	for _, key := range keys {
+		groupCommits := groups[key]
 
-	if err := os.WriteFile(outPath, []byte(content), 0o644); err != nil {
-		return nil, fmt.Errorf("writing blog post: %w", err)
-	}
-
-	if err := g.State.RecordGeneration(g.SourceRepo, "blog-post", outPath, nil); err != nil {
-		return nil, fmt.Errorf("recording generation: %w", err)
-	}
-
-	// Update state to newest commit
-	if g.SourceRepo != "" && len(commits) > 0 {
-		newest := commits[0]
-		if err := g.State.SetLastCommit(g.SourceRepo, "blog-post", newest.Hash, newest.Timestamp); err != nil {
-			return nil, fmt.Errorf("updating blog-post state: %w", err)
-		}
-	}
-
-	fmt.Printf("  Written: %s\n", outPath)
-
-	return []GenerateResult{{
-		OutputPath: outPath,
-		Content:    content,
-	}}, nil
-}
-
-func (g *BlogPostGenerator) discoverNewFiles(commits []git.Commit) (notebooks, memos map[string]string, err error) {
-	absRepo, err := filepath.Abs(g.SourceRepo)
-	if err != nil {
-		return nil, nil, fmt.Errorf("resolving source repo path: %w", err)
-	}
-	absNotebooks, _ := filepath.Abs(g.NotebooksDir)
-	absMemos, _ := filepath.Abs(g.MemosDir)
-
-	seen := make(map[string]bool)
-	notebooks = make(map[string]string)
-	memos = make(map[string]string)
-
-	for _, c := range commits {
-		for _, f := range c.Files {
-			if f.Status != "A" && f.Status != "M" {
-				continue
-			}
-			if !strings.HasSuffix(f.Path, ".md") || seen[f.Path] {
-				continue
-			}
-			seen[f.Path] = true
-
-			absPath := filepath.Join(absRepo, f.Path)
-			content, err := os.ReadFile(absPath)
+		// Fetch diffs for all commits in this group
+		diffs := make(map[string]string)
+		for _, c := range groupCommits {
+			diff, err := git.GetCommitDiff(g.SourceRepo, c.Hash)
 			if err != nil {
-				continue // file might have been deleted in a later commit
+				shortHash := c.Hash
+				if len(shortHash) > 8 {
+					shortHash = shortHash[:8]
+				}
+				return nil, fmt.Errorf("getting diff for %s: %w", shortHash, err)
 			}
-
-			name := filepath.Base(f.Path)
-			if absNotebooks != "" && strings.HasPrefix(absPath, absNotebooks) {
-				notebooks[name] = string(content)
-			} else if absMemos != "" && strings.HasPrefix(absPath, absMemos) {
-				memos[name] = string(content)
-			}
+			diffs[c.Hash] = diff
 		}
-	}
-	return notebooks, memos, nil
-}
 
-func buildBlogPostUserPrompt(notebooks, memos map[string]string) string {
-	var b strings.Builder
+		// Date from first commit in group for accurate filenames
+		date := groupCommits[0].Timestamp.Format("2006-01-02T15:04:05-07:00")
 
-	if len(notebooks) > 0 {
-		b.WriteString("Source notebooks:\n\n")
-		for name, content := range notebooks {
-			fmt.Fprintf(&b, "--- %s ---\n%s\n\n", name, content)
-		}
-	}
+		userPrompt := buildUserPrompt(repoName, key, groupCommits, diffs, g.ReadmeContent)
 
-	if len(memos) > 0 {
-		b.WriteString("Source insight memos:\n\n")
-		for name, content := range memos {
-			fmt.Fprintf(&b, "--- %s ---\n%s\n\n", name, content)
-		}
-	}
-
-	b.WriteString("Write a blog post covering this research. Focus on what makes it interesting and useful for other developers.")
-	return b.String()
-}
-
-func readMarkdownFiles(dir string) (map[string]string, error) {
-	if dir == "" {
-		return nil, nil
-	}
-
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	files := make(map[string]string)
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+		if g.DryRun {
+			fmt.Printf("[dry-run] Would generate blog post for %s (%d commits)\n", key, len(groupCommits))
 			continue
 		}
-		content, err := os.ReadFile(filepath.Join(dir, e.Name()))
+
+		fmt.Printf("Generating blog post for %s (%d commits)...\n", key, len(groupCommits))
+
+		systemPrompt := strings.Replace(g.Templates.BlogPost, "{{.Date}}", date, 1)
+
+		content, err := g.LLM.Generate(ctx, llm.Request{
+			SystemPrompt: systemPrompt,
+			UserPrompt:   userPrompt,
+			MaxTokens:    4096,
+			Temperature:  0.7,
+		})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("generating blog post for %s: %w", key, err)
 		}
-		files[e.Name()] = string(content)
+
+		slug := extractSlug(content)
+		datePrefix := groupCommits[0].Timestamp.Format("2006-01-02")
+		filename := fmt.Sprintf("%s-%s.md", datePrefix, slug)
+		outPath := filepath.Join(g.OutputDir, filename)
+
+		if err := os.WriteFile(outPath, []byte(content), 0o644); err != nil {
+			return nil, fmt.Errorf("writing blog post: %w", err)
+		}
+
+		hashes := make([]string, len(groupCommits))
+		for j, c := range groupCommits {
+			hashes[j] = c.Hash
+		}
+
+		if err := g.State.RecordGeneration(g.SourceRepo, "blog-post", outPath, hashes); err != nil {
+			return nil, fmt.Errorf("recording generation: %w", err)
+		}
+
+		results = append(results, GenerateResult{
+			OutputPath: outPath,
+			Content:    content,
+			Commits:    hashes,
+		})
+
+		fmt.Printf("  Written: %s\n", outPath)
 	}
-	return files, nil
+
+	// Update last processed commit (use the most recent commit)
+	if len(commits) > 0 && !g.DryRun {
+		newest := commits[0] // git log returns newest first
+		if err := g.State.SetLastCommit(g.SourceRepo, "blog-post", newest.Hash, newest.Timestamp); err != nil {
+			return nil, fmt.Errorf("updating state: %w", err)
+		}
+	}
+
+	return results, nil
+}
+
+func buildUserPrompt(repoName, period string, commits []git.Commit, diffs map[string]string, readmeContent string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Project: %s\n", repoName)
+	fmt.Fprintf(&b, "Period: %s\n", period)
+
+	if readmeContent != "" {
+		fmt.Fprintf(&b, "\nProject description (from README):\n%s\n", readmeContent)
+	}
+
+	fmt.Fprintf(&b, "\nCommits (%d total):\n\n", len(commits))
+
+	maxDiffPerCommit := 15000 / len(commits)
+	if maxDiffPerCommit < 2000 {
+		maxDiffPerCommit = 2000
+	}
+
+	for _, c := range commits {
+		shortHash := c.Hash
+		if len(shortHash) > 8 {
+			shortHash = shortHash[:8]
+		}
+
+		fmt.Fprintf(&b, "---\n")
+		fmt.Fprintf(&b, "Hash: %s\n", shortHash)
+		fmt.Fprintf(&b, "Date: %s\n", c.Timestamp.Format("2006-01-02 15:04"))
+		fmt.Fprintf(&b, "Author: %s\n", c.Author)
+		fmt.Fprintf(&b, "Subject: %s\n", c.Subject)
+		if c.Body != "" {
+			fmt.Fprintf(&b, "Description:\n%s\n", c.Body)
+		}
+		if len(c.Files) > 0 {
+			fmt.Fprintf(&b, "Files changed:\n")
+			for _, f := range c.Files {
+				fmt.Fprintf(&b, "  %s %s\n", f.Status, f.Path)
+			}
+		}
+
+		if diff, ok := diffs[c.Hash]; ok && diff != "" {
+			truncatedDiff := diff
+			if len(truncatedDiff) > maxDiffPerCommit {
+				truncatedDiff = truncatedDiff[:maxDiffPerCommit] + "\n... (diff truncated)"
+			}
+			fmt.Fprintf(&b, "Code changes (diff):\n```\n%s\n```\n", truncatedDiff)
+		}
+		fmt.Fprintf(&b, "---\n\n")
+	}
+
+	b.WriteString("Write a blog post covering this work. Focus on what makes it interesting and useful for other developers.")
+	return b.String()
 }
 
 var nonAlphanumeric = regexp.MustCompile(`[^a-z0-9]+`)

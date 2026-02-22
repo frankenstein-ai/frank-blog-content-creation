@@ -1,15 +1,24 @@
 # frank-blog-content-generator
 
-CLI tool that generates blog content from R&D git commits using LLMs. Built for [Frankenstein AI Lab](https://github.com/frankenstein-ai) to turn daily research work into structured documentation without manual writing.
+CLI tool that generates blog posts from your project's git history using LLMs. Built for [Frankenstein AI Lab](https://github.com/frankenstein-ai) to turn daily development work into published blog content without manual writing.
 
-## What it generates
+## How it works
 
-| Content type | Source | Description |
-|---|---|---|
-| **Notebooks** | git commits | Terse research summaries grouped by day or week, with code diff analysis |
-| **Insight Memos** | git commits | Durable knowledge distilled from a work period, with code diff analysis |
-| **Blog Posts** | notebooks + memos | Long-form posts for a technical audience |
-| **Homepage** | notebooks + memos | Up-to-date overview of latest research |
+```
+Your project (git commits)
+        │
+        └──► Blog Posts  (grouped by day/week, with code diffs)
+                 │
+                 ├──► Hugo Menu  (frank update menu)
+                 │
+                 └──► Hugo Home  (frank update home)
+```
+
+1. **Read commits** — `frank` shells out to `git log` on the current project
+2. **Check state** — SQLite tracks the last processed commit, so only new commits are processed
+3. **Group and fetch diffs** — Commits are grouped by time period, then each commit's full code diff and the project README are included as context for the LLM
+4. **Generate and write** — LLM output is parsed into Hugo-compatible markdown blog posts
+5. **Update state** — The last processed commit is recorded so the next run picks up where this one left off
 
 ## Requirements
 
@@ -35,61 +44,16 @@ go build -o frank .
 # Build
 go build -o frank .
 
-# Create a config file (optional — avoids repeating flags)
-cat > .frank.toml <<'EOF'
-hugo_dir = "/path/to/hugo-blog"
-source_repo = "/path/to/your-project"
-blog_source_repo = "/path/to/lab-work"
-notebooks_dir = "./output/notebooks"
-memos_dir = "./output/memos"
-blog_dir = "./output/posts"
-output_dir = "./output"
-llm_provider = "anthropic"
-EOF
+# Initialize from your project directory (sets starting commit + generates config)
+cd /path/to/your-project
+./frank init --commit abc1234 --hugo-dir /path/to/hugo-blog
 
-# Set starting commits (skip old history)
-./frank init \
-  --source-repo /path/to/your-project \
-  --commit abc1234 \
-  --blog-repo /path/to/lab-work \
-  --blog-commit def5678
+# Generate blog posts (dry-run — no API key needed)
+./frank generate blog-posts --dry-run
 
-# Generate notebooks + memos together (dry-run — no API key needed)
-./frank generate notes \
-  --notebooks-dir ./output/notebooks \
-  --memos-dir ./output/memos \
-  --dry-run
-
-# Generate notebooks + memos for real (source repo read from state)
+# Generate blog posts for real
 export ANTHROPIC_API_KEY="sk-..."
-./frank generate notes \
-  --notebooks-dir ./output/notebooks \
-  --memos-dir ./output/memos \
-  --llm-provider anthropic
-
-# Or generate them individually:
-./frank generate notebooks \
-  --source-repo /path/to/your-project \
-  --output-dir ./output/notebooks \
-  --llm-provider anthropic
-
-./frank generate memos \
-  --source-repo /path/to/your-project \
-  --output-dir ./output/memos \
-  --llm-provider anthropic
-
-# Generate blog posts from new notebooks and memos (source repo read from state)
-./frank generate blog-posts \
-  --notebooks-dir ./output/notebooks \
-  --memos-dir ./output/memos \
-  --output-dir ./output/posts \
-  --llm-provider anthropic
-
-# Generate homepage (output-file derived from hugo_dir if set)
-./frank generate homepage \
-  --notebooks-dir ./output/notebooks \
-  --memos-dir ./output/memos \
-  --llm-provider anthropic
+./frank generate blog-posts
 
 # Update Hugo menu with latest blog post
 ./frank update menu
@@ -104,15 +68,11 @@ export ANTHROPIC_API_KEY="sk-..."
 ## Commands
 
 ```
-frank generate notes       Generate notebooks and insight memos together
-frank generate notebooks   Generate research notebooks from git commits
-frank generate memos       Generate insight memos from git commits
-frank generate blog-posts  Generate blog posts from notebooks and memos
-frank generate homepage    Generate homepage from notebooks and memos
+frank init                 Initialize frank for this project (set starting commit + generate config)
+frank generate blog-posts  Generate blog posts from git commits
 frank update menu          Update Hugo menu with the latest blog post
 frank update home          Regenerate homepage from published blog posts
-frank init                 Set starting commit point for content generation
-frank status               Show last processed commit per source repo
+frank status               Show last processed commit
 frank --version            Print version
 ```
 
@@ -130,16 +90,8 @@ frank --version            Print version
 
 | Flag | Env var | Used by |
 |---|---|---|
-| `--source-repo` | `FRANK_SOURCE_REPO` | `init`, `notes`, `notebooks`, `memos`, `blog-posts` |
-| `--blog-source-repo` | `FRANK_BLOG_SOURCE_REPO` | `blog-posts` (overrides `--source-repo` for blog generation) |
-| `--commit` | — | `init` (paired with `--source-repo`) |
-| `--blog-repo` | `FRANK_BLOG_REPO` | `init` |
-| `--blog-commit` | — | `init` (paired with `--blog-repo`) |
-| `--output-dir` | `FRANK_OUTPUT_DIR` | `notebooks`, `memos`, `blog-posts` |
-| `--notebooks-dir` | `FRANK_NOTEBOOKS_DIR` | `notes`, `blog-posts`, `homepage` |
-| `--memos-dir` | `FRANK_MEMOS_DIR` | `notes`, `blog-posts`, `homepage` |
-| `--output-file` | — | `homepage` (derived from `hugo_dir` when not set) |
-| `--period` | — | `notes`, `notebooks`, `memos` (`day` or `week`) |
+| `--commit` | — | `init` (required — starting commit hash) |
+| `--period` | — | `blog-posts` (`day` or `week`, default: `week`) |
 
 ### API key env vars
 
@@ -152,64 +104,25 @@ frank --version            Print version
 
 ### Config file (`.frank.toml`)
 
-Place a `.frank.toml` in the project root to avoid repeating flags. Flat key=value format:
+Place a `.frank.toml` in the project root to avoid repeating flags. Created automatically by `frank init`. Flat key=value format:
 
 ```toml
 # .frank.toml
 hugo_dir = "/path/to/hugo-blog"
-source_repo = "/path/to/your-project"
-blog_source_repo = "/path/to/lab-work"
-notebooks_dir = "./notebooks"
-memos_dir = "./memos"
-blog_dir = "./posts"
-output_dir = "./output"
 state_db = ".frank-state.db"
 llm_provider = "anthropic"
 llm_model = ""
+# day or week
+period = "week"
 ```
 
 Resolution order: **CLI flags > env vars > `.frank.toml` > defaults**
 
-## How it works
-
-```
-Source repo (git commits)
-        │
-        ├──► Notebooks  (grouped by day/week, with code diffs)
-        │
-        └──► Insight Memos  (grouped by day/week, with code diffs)
-                    │
-        ┌───────────┤
-        │           │
-        ▼           ▼
-   Blog Posts    Homepage
-        │
-        ├──► Hugo Menu  (frank update menu)
-        │
-        └──► Hugo Home  (frank update home)
-```
-
-1. **Read commits** — `frank` shells out to `git log` on the source repo
-2. **Check state** — SQLite tracks the last processed commit per repo and content type, so only new commits are processed. Blog post generation also tracks commits in the blog content repo to discover only new notebooks and memos
-3. **Group and fetch diffs** — Commits are grouped by time period, then each commit's full code diff and the project README are included as context for the LLM
-4. **Parse and write** — LLM output is parsed into structured markdown files following opinionated naming conventions
-5. **Update state** — The last processed commit is recorded so the next run picks up where this one left off
-
 ## Output file conventions
-
-**Notebooks**: `{YYYY}-{MM}-{Topic-Slug}-{NN}.md`
-- Topic slug is extracted from the LLM output (e.g., `LLM-Reasoning`, `ONNX-Export`)
-- Example: `2025-02-LLM-Reasoning-01.md`
-
-**Insight Memos**: `{YYYY}-{project}-insight-memo-{NNN}.md`
-- Project name derived from source repo basename
-- Example: `2025-mobile-agents-insight-memo-001.md`
 
 **Blog Posts**: `{YYYY}-{MM}-{DD}-{slug}.md`
 - Slug derived from the frontmatter title
-- Hugo-compatible with `+++` frontmatter
-
-**Homepage**: Single file at the path specified by `--output-file`
+- Hugo-compatible with `+++` TOML frontmatter
 
 ## Releases
 
@@ -226,40 +139,25 @@ This builds binaries for linux/darwin/windows (amd64 + arm64) and publishes them
 
 The included workflow (`.github/workflows/generate.yaml`) runs daily at 06:00 UTC and can be triggered manually. It:
 
-1. Checks out the source repo, lab-work repo, and blog repo
+1. Checks out the source repo and blog repo
 2. Builds the CLI
-3. Generates all four content types
-4. Commits and pushes results to the lab-work and blog repos
+3. Generates blog posts from new commits
+4. Updates the Hugo menu and homepage
+5. Commits and pushes results to the blog repo
 
 Required secrets: `GH_PAT`, `ANTHROPIC_API_KEY` (or `OPENAI_API_KEY` or `OPENROUTER_API_KEY`)
 
 Optional variables: `FRANK_LLM_PROVIDER`, `FRANK_LLM_MODEL`
 
-### Workflow templates
+### Workflow template
 
-Two reusable workflow templates are provided in `examples/workflow/` for setting up content generation in your own repositories:
+A reusable workflow template is provided in `examples/workflow/generate-blog-posts.yaml`. Drop it into any project's `.github/workflows/` to auto-generate blog posts from commits.
 
-**`generate-notes.yaml`** — Notebooks & memos from any R&D project
+**Setup:**
 
-Drop this into your source project (e.g., `mobile-agents`). It runs daily, reads commits from the project itself, and pushes generated notebooks and memos to an output repo (e.g., `lab-work`).
-
-```
-Source project (.github/workflows/)  →  frank generate notebooks + memos  →  lab-work repo
-```
-
-**`generate-blog.yaml`** — Blog posts, menu & homepage updates
-
-Drop this into the repo where notebooks and memos are committed (e.g., `lab-work`). It runs one hour after the notes workflow, generates blog posts from new notebooks/memos, updates the Hugo menu, and regenerates the homepage.
-
-```
-lab-work (.github/workflows/)  →  frank generate blog-posts + update menu + update home  →  blog repo
-```
-
-**Setup for both:**
-
-1. Copy the template to `.github/workflows/` in the target repo
+1. Copy the template to `.github/workflows/` in your project
 2. Set secrets: `GH_PAT` + an LLM API key (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `OPENROUTER_API_KEY`)
-3. Edit the `env` block at the top of the workflow to match your repo names and directory paths
+3. Edit the `env` block at the top of the workflow to set your blog repo
 4. (Optional) Set repo variables: `FRANK_LLM_PROVIDER`, `FRANK_LLM_MODEL`
 5. (Optional) Pin `FRANK_VERSION` to a specific release tag for reproducibility
 

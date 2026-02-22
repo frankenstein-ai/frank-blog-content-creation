@@ -11,8 +11,8 @@ var version = "dev"
 
 var rootCmd = &cobra.Command{
 	Use:     "frank",
-	Short:   "Frankenstein AI Lab content generator",
-	Long:    "Automatically generate research notebooks, insight memos, and blog posts from R&D git commits.",
+	Short:   "Generate blog posts from git commits",
+	Long:    "CLI tool that generates blog posts from your project's git history using LLMs.",
 	Version: version,
 }
 

@@ -12,54 +12,45 @@ import (
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Set starting commit point for content generation",
+	Short: "Initialize frank for this project",
 	Long: `Initialize the processing state so that future generation runs only process
-commits after the specified ones.
+commits after the specified one. Also generates a .frank.toml config file.
 
-Two independent tracks can be initialized together or separately:
-  - Source track (--source-repo + --commit): sets starting point for notebooks and memos
-  - Blog track (--blog-repo + --blog-commit): sets starting point for blog posts`,
+Run this from the root of the project whose commits you want to turn into blog posts.`,
 	RunE: runInit,
 }
 
 func init() {
-	initCmd.Flags().String("source-repo", "", "Path to source git repository (env: FRANK_SOURCE_REPO)")
-	initCmd.Flags().String("commit", "", "Starting commit for notebook + memo generation")
-	initCmd.Flags().String("blog-repo", "", "Path to blog content git repository (env: FRANK_BLOG_REPO)")
-	initCmd.Flags().String("blog-commit", "", "Starting commit for blog-post generation")
+	initCmd.Flags().String("commit", "", "Starting commit hash (required)")
+	initCmd.Flags().String("hugo-dir", "", "Path to Hugo site directory (env: FRANK_HUGO_DIR)")
+	initCmd.MarkFlagRequired("commit")
+	initCmd.MarkFlagRequired("hugo-dir")
 	rootCmd.AddCommand(initCmd)
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
-	sourceRepo := flagOrEnvInit(cmd, "source-repo", "FRANK_SOURCE_REPO")
 	commitHash, _ := cmd.Flags().GetString("commit")
-	blogRepo := flagOrEnvInit(cmd, "blog-repo", "FRANK_BLOG_REPO")
-	blogCommit, _ := cmd.Flags().GetString("blog-commit")
 	dbPath, _ := cmd.Flags().GetString("state-db")
 
-	hasSource := sourceRepo != "" || commitHash != ""
-	hasBlog := blogRepo != "" || blogCommit != ""
-
-	if !hasSource && !hasBlog {
-		return fmt.Errorf("at least one track required: --source-repo + --commit, or --blog-repo + --blog-commit")
+	sourceRepo, err := filepath.Abs(".")
+	if err != nil {
+		return fmt.Errorf("resolving source repo: %w", err)
 	}
 
-	// Validate flags come in pairs
-	if hasSource {
-		if sourceRepo == "" {
-			return fmt.Errorf("--source-repo (or FRANK_SOURCE_REPO) is required when --commit is provided")
-		}
-		if commitHash == "" {
-			return fmt.Errorf("--commit is required when --source-repo is provided")
-		}
+	commit, err := git.GetCommit(sourceRepo, commitHash)
+	if err != nil {
+		return err
 	}
-	if hasBlog {
-		if blogRepo == "" {
-			return fmt.Errorf("--blog-repo (or FRANK_BLOG_REPO) is required when --blog-commit is provided")
-		}
-		if blogCommit == "" {
-			return fmt.Errorf("--blog-commit is required when --blog-repo is provided")
-		}
+
+	short := commit.Hash
+	if len(short) > 8 {
+		short = short[:8]
+	}
+
+	// Store parent hash so the exclusive range (parent..HEAD) includes the target commit
+	parentHash, err := git.GetParentHash(sourceRepo, commit.Hash)
+	if err != nil {
+		return fmt.Errorf("resolving parent commit: %w", err)
 	}
 
 	// Open state DB
@@ -69,67 +60,69 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 	defer store.Close()
 
-	// Source track: initialize notebook + memo
-	if hasSource {
-		absRepo, err := filepath.Abs(sourceRepo)
-		if err != nil {
-			return fmt.Errorf("resolving source repo path: %w", err)
+	if err := store.SetLastCommit(sourceRepo, "blog-post", parentHash, commit.Timestamp); err != nil {
+		return fmt.Errorf("setting state: %w", err)
+	}
+	fmt.Printf("Initialized blog-post → commit %s (%s)\n", short, commit.Timestamp.Format("2006-01-02"))
+
+	if err := writeConfig(cmd); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func writeConfig(cmd *cobra.Command) error {
+	const configFile = ".frank.toml"
+
+	if _, err := os.Stat(configFile); err == nil {
+		fmt.Printf("%s already exists, skipping\n", configFile)
+		return nil
+	}
+
+	hugoDir := flagOrEnvInit(cmd, "hugo-dir", "FRANK_HUGO_DIR")
+	llmProvider := flagOrEnvInit(cmd, "llm-provider", "FRANK_LLM_PROVIDER")
+	llmModel := flagOrEnvInit(cmd, "llm-model", "FRANK_LLM_MODEL")
+	stateDB, _ := cmd.Flags().GetString("state-db")
+	period := flagOrEnvInit(cmd, "period", "")
+	if period == "" {
+		period = "week"
+	}
+
+	type entry struct {
+		key     string
+		value   string
+		comment string
+	}
+
+	entries := []entry{
+		{"hugo_dir", hugoDir, ""},
+		{"state_db", stateDB, ""},
+		{"llm_provider", llmProvider, ""},
+		{"llm_model", llmModel, ""},
+		{"period", period, "day or week"},
+	}
+
+	var content string
+	content += "# .frank.toml — persistent config for frank CLI\n"
+	content += "# Resolution order: CLI flags > env vars > .frank.toml > defaults\n\n"
+
+	for _, e := range entries {
+		if e.comment != "" {
+			content += fmt.Sprintf("# %s\n", e.comment)
 		}
-		commit, err := git.GetCommit(absRepo, commitHash)
-		if err != nil {
-			return err
-		}
-		short := commit.Hash
-		if len(short) > 8 {
-			short = short[:8]
-		}
-		// Store parent hash so the exclusive range (parent..HEAD) includes the target commit
-		parentHash, err := git.GetParentHash(absRepo, commit.Hash)
-		if err != nil {
-			return fmt.Errorf("resolving parent commit: %w", err)
-		}
-		storeHash := parentHash
-		if storeHash == "" {
-			// Root commit — store empty so GetCommits returns all commits
-			storeHash = ""
-		}
-		for _, ct := range []string{"notebook", "memo"} {
-			if err := store.SetLastCommit(absRepo, ct, storeHash, commit.Timestamp); err != nil {
-				return fmt.Errorf("setting state for %s: %w", ct, err)
-			}
-			fmt.Printf("Initialized %s → commit %s (%s)\n", ct, short, commit.Timestamp.Format("2006-01-02"))
+		if e.value != "" {
+			content += fmt.Sprintf("%s = \"%s\"\n", e.key, e.value)
+		} else {
+			content += fmt.Sprintf("# %s = \"\"\n", e.key)
 		}
 	}
 
-	// Blog track: initialize blog-post
-	if hasBlog {
-		absRepo, err := filepath.Abs(blogRepo)
-		if err != nil {
-			return fmt.Errorf("resolving blog repo path: %w", err)
-		}
-		commit, err := git.GetCommit(absRepo, blogCommit)
-		if err != nil {
-			return err
-		}
-		short := commit.Hash
-		if len(short) > 8 {
-			short = short[:8]
-		}
-		// Store parent hash so the exclusive range includes the target commit
-		blogParent, err := git.GetParentHash(absRepo, commit.Hash)
-		if err != nil {
-			return fmt.Errorf("resolving parent commit: %w", err)
-		}
-		storeHash := blogParent
-		if storeHash == "" {
-			storeHash = ""
-		}
-		if err := store.SetLastCommit(absRepo, "blog-post", storeHash, commit.Timestamp); err != nil {
-			return fmt.Errorf("setting state for blog-post: %w", err)
-		}
-		fmt.Printf("Initialized blog-post → commit %s (%s)\n", short, commit.Timestamp.Format("2006-01-02"))
+	if err := os.WriteFile(configFile, []byte(content), 0644); err != nil {
+		return fmt.Errorf("writing %s: %w", configFile, err)
 	}
 
+	fmt.Printf("Generated %s\n", configFile)
 	return nil
 }
 
@@ -138,5 +131,8 @@ func flagOrEnvInit(cmd *cobra.Command, flag, env string) string {
 		v, _ := cmd.Flags().GetString(flag)
 		return v
 	}
-	return os.Getenv(env)
+	if env != "" {
+		return os.Getenv(env)
+	}
+	return ""
 }
