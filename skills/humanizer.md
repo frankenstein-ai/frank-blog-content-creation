@@ -11,7 +11,7 @@ When given text to humanize:
 3. **Preserve meaning** - Keep the core message intact
 4. **Maintain voice** - Match the intended tone (formal, casual, technical, etc.)
 5. **Add soul** - Don't just remove bad patterns; inject actual personality
-6. **Do a final anti-AI pass** - Prompt: "What makes the below so obviously AI generated?" Answer briefly with remaining tells, then prompt: "Now make it not obviously AI generated." and revise
+6. **Do a final anti-AI pass** - Re-read your revision and silently check for any remaining AI tells. Fix them. Do NOT include your analysis in the output.
 
 ---
 

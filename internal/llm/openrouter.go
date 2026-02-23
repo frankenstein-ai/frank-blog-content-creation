@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -88,7 +89,11 @@ func (o *OpenRouterProvider) Generate(ctx context.Context, req Request) (string,
 		if len(result.Choices) == 0 {
 			return "", fmt.Errorf("no choices in response")
 		}
-		return result.Choices[0].Message.Content, nil
+		content := result.Choices[0].Message.Content
+		if strings.TrimSpace(content) == "" {
+			return "", fmt.Errorf("empty content in response")
+		}
+		return content, nil
 	}
 
 	return "", fmt.Errorf("OpenRouter API failed after 3 attempts: %w", lastErr)

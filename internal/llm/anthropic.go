@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -88,7 +89,11 @@ func (a *AnthropicProvider) Generate(ctx context.Context, req Request) (string, 
 		if len(result.Content) == 0 {
 			return "", fmt.Errorf("no content in response")
 		}
-		return result.Content[0].Text, nil
+		text := result.Content[0].Text
+		if strings.TrimSpace(text) == "" {
+			return "", fmt.Errorf("empty content in response")
+		}
+		return text, nil
 	}
 
 	return "", fmt.Errorf("Anthropic API failed after 3 attempts: %w", lastErr)
