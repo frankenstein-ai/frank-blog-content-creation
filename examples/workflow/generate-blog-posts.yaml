@@ -3,8 +3,8 @@
 #
 # Prerequisites:
 #   - Secret: GH_PAT (GitHub PAT with repo access + models:read scope)
+#   - No local setup needed — the workflow handles initialization automatically.
 #   - The default LLM provider is GitHub Models (free tier) — no paid API keys needed.
-#   - To use a paid provider instead, set llm-provider and pass the corresponding secret.
 #
 # See all available inputs and secrets at:
 #   https://github.com/frankenstein-ai/frank-blog-content-generator/blob/main/.github/workflows/generate-reusable.yaml
@@ -12,8 +12,8 @@
 name: Generate Blog Posts
 
 on:
-  schedule:
-    - cron: '0 6 * * 1'  # Weekly on Monday at 06:00 UTC
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -24,10 +24,13 @@ jobs:
     uses: frankenstein-ai/frank-blog-content-generator/.github/workflows/generate-reusable.yaml@main
     with:
       blog-repo: your-org/your-blog
+      # start-commit: ''               # default: HEAD (first run generates nothing)
       # period: week                    # default: week
       # frank-version: v0.3.0           # default: latest
       # llm-provider: github            # default: github (free tier)
       # llm-model: ''                   # default: provider default
+      skill-urls: |
+        humanizer=https://raw.githubusercontent.com/blader/humanizer/main/SKILL.md
     secrets:
       gh-pat: ${{ secrets.GH_PAT }}
       # anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}

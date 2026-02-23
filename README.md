@@ -146,7 +146,7 @@ This builds binaries for linux/darwin/windows (amd64 + arm64) and publishes them
 
 ### Reusable workflow (recommended)
 
-A reusable workflow is provided at `.github/workflows/generate-reusable.yaml`. Any project can call it to auto-generate blog posts and push them to a separate blog repo. The default LLM provider is GitHub Models (free tier) — no paid API keys needed.
+A reusable workflow is provided at `.github/workflows/generate-reusable.yaml`. It's fully self-contained — no local setup, no `frank init`, no config files needed. The default LLM provider is GitHub Models (free tier).
 
 Add this to `.github/workflows/generate.yaml` in your project:
 
@@ -154,8 +154,8 @@ Add this to `.github/workflows/generate.yaml` in your project:
 name: Generate Blog Posts
 
 on:
-  schedule:
-    - cron: '0 6 * * 1'  # Weekly on Monday at 06:00 UTC
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -166,6 +166,8 @@ jobs:
     uses: frankenstein-ai/frank-blog-content-generator/.github/workflows/generate-reusable.yaml@main
     with:
       blog-repo: your-org/your-blog
+      skill-urls: |
+        humanizer=https://raw.githubusercontent.com/blader/humanizer/main/SKILL.md
     secrets:
       gh-pat: ${{ secrets.GH_PAT }}
 ```
@@ -173,12 +175,14 @@ jobs:
 **Setup:**
 
 1. Create a `GH_PAT` secret — a GitHub PAT with `repo` + `models:read` scope
-2. Set `blog-repo` to your Hugo blog repository (e.g., `your-org/your-blog`)
-3. That's it — the default `github` provider uses your PAT for free LLM access
+2. Set `blog-repo` to your Hugo blog repository
+3. That's it — no local setup needed
 
-**Optional inputs:** `period` (day/week), `frank-version`, `llm-provider`, `llm-model`, `commit-message`. To use a paid provider, set `llm-provider` and pass the corresponding secret (`anthropic-api-key`, `openai-api-key`, or `openrouter-api-key`).
+The workflow triggers on every push to main. On first run it sets a baseline at HEAD (no posts generated). Subsequent pushes generate blog posts from new commits. The state DB (`.frank-state.db`) is auto-committed back to your repo with `[skip ci]` to prevent loops. Skills are downloaded, posts are generated, and everything is pushed to the blog repo.
 
-See the full input/secret reference in [generate-reusable.yaml](.github/workflows/generate-reusable.yaml) and a minimal example in [examples/workflow/generate-blog-posts.yaml](examples/workflow/generate-blog-posts.yaml).
+**Optional inputs:** `start-commit` (process older commits on first run), `period` (day/week), `frank-version`, `llm-provider`, `llm-model`, `commit-message`, `skill-urls`. To use a paid provider, set `llm-provider` and pass the corresponding secret (`anthropic-api-key`, `openai-api-key`, or `openrouter-api-key`).
+
+See the full input/secret reference in [generate-reusable.yaml](.github/workflows/generate-reusable.yaml) and a complete example in [examples/workflow/generate-blog-posts.yaml](examples/workflow/generate-blog-posts.yaml).
 
 ### Development workflow
 

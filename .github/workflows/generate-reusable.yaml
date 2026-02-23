@@ -32,6 +32,16 @@ on:
         required: false
         default: 'Auto-generate blog posts [skip ci]'
         type: string
+      start-commit:
+        description: 'Commit hash to start from on first run (empty = HEAD, no posts on first run)'
+        required: false
+        default: ''
+        type: string
+      skill-urls:
+        description: 'Newline-separated skill=url pairs (e.g., humanizer=https://example.com/SKILL.md)'
+        required: false
+        default: ''
+        type: string
     secrets:
       gh-pat:
         description: 'GitHub PAT with repo access and models:read scope'
@@ -56,6 +66,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.gh-pat }}
 
       - name: Checkout blog
         uses: actions/checkout@v4
@@ -82,16 +93,46 @@ jobs:
       - name: Verify frank CLI
         run: ./frank --version
 
-      - name: Restore state DB
-        uses: actions/cache@v4
-        with:
-          path: .frank-state.db
-          key: frank-state-${{ github.repository }}-${{ github.run_id }}
-          restore-keys: frank-state-${{ github.repository }}-
+      - name: Auto-initialize state
+        run: |
+          if [ ! -f .frank-state.db ]; then
+            echo "No state DB found — initializing..."
+            if [ -n "$START_COMMIT" ]; then
+              echo "Setting start commit to $START_COMMIT"
+              ./frank status update --commit "$START_COMMIT"
+            else
+              HEAD=$(git rev-parse HEAD)
+              echo "Setting baseline to HEAD ($HEAD) — first run generates nothing"
+              ./frank status update --commit "$HEAD"
+            fi
+          else
+            echo "State DB found in repo"
+          fi
+        env:
+          START_COMMIT: ${{ inputs.start-commit }}
 
-      # NOTE: If your .frank.toml configures skills (e.g., skills = ["humanizer"]),
-      # the corresponding skill files (skills/humanizer.md) must be committed to
-      # your repository. The reusable workflow does not auto-download skills.
+      - name: Download skills
+        if: inputs.skill-urls != ''
+        run: |
+          mkdir -p skills
+          SKILLS=""
+          while IFS='=' read -r name url; do
+            name=$(echo "$name" | xargs)
+            url=$(echo "$url" | xargs)
+            [ -z "$name" ] || [ -z "$url" ] && continue
+            SKILLS="${SKILLS:+$SKILLS, }\"$name\""
+            echo "skill_url_$name = \"$url\"" >> .frank.toml
+          done <<< "$SKILL_URLS"
+          echo "skills = [$SKILLS]" >> .frank.toml
+          while IFS='=' read -r name url; do
+            name=$(echo "$name" | xargs)
+            [ -z "$name" ] && continue
+            echo "Downloading skill: $name"
+            ./frank update skill "$name"
+          done <<< "$SKILL_URLS"
+        env:
+          SKILL_URLS: ${{ inputs.skill-urls }}
+
       - name: Generate blog posts
         run: ./frank generate blog-posts --period ${{ inputs.period }}
         env:
@@ -121,4 +162,12 @@ jobs:
           git config user.email "frank-bot@users.noreply.github.com"
           git add -A
           git diff --staged --quiet || git commit -m "${{ inputs.commit-message }}"
+          git push
+
+      - name: Commit state DB
+        run: |
+          git config user.name "frank-bot"
+          git config user.email "frank-bot@users.noreply.github.com"
+          git add -f .frank-state.db
+          git diff --staged --quiet || git commit -m "chore: update frank state [skip ci]"
           git push
