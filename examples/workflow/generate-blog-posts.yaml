@@ -7,7 +7,7 @@
 #   - The default LLM provider is GitHub Models (free tier) — no paid API keys needed.
 #
 # See all available inputs and secrets at:
-#   https://github.com/frankenstein-ai/frank-blog-content-generator/blob/main/.github/workflows/generate-reusable.yaml
+#   https://github.com/frankenstein-ai/frank-blog-content-creation/blob/main/.github/workflows/generate-reusable.yaml
 
 name: Generate Blog Posts
 
@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   blog:
-    uses: frankenstein-ai/frank-blog-content-generator/.github/workflows/generate-reusable.yaml@main
+    uses: frankenstein-ai/frank-blog-content-creation/.github/workflows/generate-reusable.yaml@main
     with:
       blog-repo: your-org/your-blog
       # start-commit: ''               # default: HEAD (first run generates nothing)

@@ -1,4 +1,4 @@
-# frank-blog-content-generator
+# frank-blog-content-creation
 
 CLI tool that generates blog posts from your project's git history using LLMs. Built for [Frankenstein AI Lab](https://github.com/frankenstein-ai) to turn daily development work into published blog content without manual writing.
 
@@ -30,7 +30,7 @@ Your project (git commits)
 
 **From GitHub Releases** (prebuilt binaries):
 
-Download the latest binary for your platform from [Releases](https://github.com/frankenstein-ai/frank-blog-content-generator/releases).
+Download the latest binary for your platform from [Releases](https://github.com/frankenstein-ai/frank-blog-content-creation/releases).
 
 **From source**:
 
@@ -54,6 +54,10 @@ cd /path/to/your-project
 # Generate blog posts for real
 export ANTHROPIC_API_KEY="sk-..."
 ./frank generate blog-posts
+
+# — or use OpenRouter —
+export OPENROUTER_API_KEY="sk-or-..."
+./frank generate blog-posts --llm-provider openrouter
 
 # Update Hugo menu with latest blog post
 ./frank update menu
@@ -163,9 +167,10 @@ permissions:
 
 jobs:
   blog:
-    uses: frankenstein-ai/frank-blog-content-generator/.github/workflows/generate-reusable.yaml@main
+    uses: frankenstein-ai/frank-blog-content-creation/.github/workflows/generate-reusable.yaml@main
     with:
       blog-repo: your-org/your-blog
+      llm-model: gpt-4o
       skill-urls: |
         humanizer=https://raw.githubusercontent.com/blader/humanizer/main/SKILL.md
     secrets:
@@ -179,6 +184,20 @@ jobs:
 3. That's it — no local setup needed
 
 The workflow triggers on every push to main. On first run it sets a baseline at HEAD (no posts generated). Subsequent pushes generate blog posts from new commits. The state DB (`.frank-state.db`) is auto-committed back to your repo with `[skip ci]` to prevent loops. Skills are downloaded, posts are generated, and everything is pushed to the blog repo.
+
+**With OpenRouter** instead of GitHub Models:
+
+```yaml
+    with:
+      blog-repo: your-org/your-blog
+      llm-provider: openrouter
+      llm-model: anthropic/claude-sonnet-4
+      skill-urls: |
+        humanizer=https://raw.githubusercontent.com/blader/humanizer/main/SKILL.md
+    secrets:
+      gh-pat: ${{ secrets.GH_PAT }}
+      openrouter-api-key: ${{ secrets.OPENROUTER_API_KEY }}
+```
 
 **Optional inputs:** `start-commit` (process older commits on first run), `period` (day/week), `frank-version`, `llm-provider`, `llm-model`, `commit-message`, `skill-urls`. To use a paid provider, set `llm-provider` and pass the corresponding secret (`anthropic-api-key`, `openai-api-key`, or `openrouter-api-key`).
 
