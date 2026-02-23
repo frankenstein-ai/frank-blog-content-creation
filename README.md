@@ -24,7 +24,7 @@ Your project (git commits)
 
 - Go 1.24+
 - Git (available in `PATH`)
-- An API key for OpenAI, Anthropic, or OpenRouter (not needed for Ollama)
+- An LLM provider: [GitHub Models](https://github.com/marketplace?type=models) (free), OpenAI, Anthropic, OpenRouter, or Ollama
 
 ## Install
 
@@ -82,7 +82,7 @@ frank --version                         Print version
 
 | Flag | Env var | Description |
 |---|---|---|
-| `--llm-provider` | `FRANK_LLM_PROVIDER` | LLM provider: `openai`, `anthropic`, `ollama`, or `openrouter` |
+| `--llm-provider` | `FRANK_LLM_PROVIDER` | LLM provider: `github`, `openai`, `anthropic`, `ollama`, or `openrouter` |
 | `--llm-model` | `FRANK_LLM_MODEL` | Model name (uses provider default if omitted) |
 | `--state-db` | `FRANK_STATE_DB` | Path to SQLite state file (default: `.frank-state.db`) |
 | `--hugo-dir` | `FRANK_HUGO_DIR` | Path to Hugo site directory |
@@ -99,6 +99,7 @@ frank --version                         Print version
 
 | Provider | Env var |
 |---|---|
+| GitHub Models | `GITHUB_TOKEN` (PAT with `models:read` scope) |
 | OpenAI | `OPENAI_API_KEY` |
 | Anthropic | `ANTHROPIC_API_KEY` |
 | Ollama | `OLLAMA_HOST` (optional, default: `http://localhost:11434`) |
@@ -143,34 +144,50 @@ This builds binaries for linux/darwin/windows (amd64 + arm64) and publishes them
 
 ## GitHub Actions
 
-The included workflow (`.github/workflows/generate.yaml`) runs daily at 06:00 UTC and can be triggered manually. It:
+### Reusable workflow (recommended)
 
-1. Checks out the source repo and blog repo
-2. Builds the CLI
-3. Generates blog posts from new commits
-4. Updates the Hugo menu and homepage
-5. Commits and pushes results to the blog repo
+A reusable workflow is provided at `.github/workflows/generate-reusable.yaml`. Any project can call it to auto-generate blog posts and push them to a separate blog repo. The default LLM provider is GitHub Models (free tier) — no paid API keys needed.
 
-Required secrets: `GH_PAT`, `ANTHROPIC_API_KEY` (or `OPENAI_API_KEY` or `OPENROUTER_API_KEY`)
+Add this to `.github/workflows/generate.yaml` in your project:
 
-Optional variables: `FRANK_LLM_PROVIDER`, `FRANK_LLM_MODEL`
+```yaml
+name: Generate Blog Posts
 
-### Workflow template
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly on Monday at 06:00 UTC
+  workflow_dispatch:
 
-A reusable workflow template is provided in `examples/workflow/generate-blog-posts.yaml`. Drop it into any project's `.github/workflows/` to auto-generate blog posts from commits.
+permissions:
+  contents: write
+
+jobs:
+  blog:
+    uses: frankenstein-ai/frank-blog-content-generator/.github/workflows/generate-reusable.yaml@main
+    with:
+      blog-repo: your-org/your-blog
+    secrets:
+      gh-pat: ${{ secrets.GH_PAT }}
+```
 
 **Setup:**
 
-1. Copy the template to `.github/workflows/` in your project
-2. Set secrets: `GH_PAT` + an LLM API key (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `OPENROUTER_API_KEY`)
-3. Edit the `env` block at the top of the workflow to set your blog repo
-4. (Optional) Set repo variables: `FRANK_LLM_PROVIDER`, `FRANK_LLM_MODEL`
-5. (Optional) Pin `FRANK_VERSION` to a specific release tag for reproducibility
+1. Create a `GH_PAT` secret — a GitHub PAT with `repo` + `models:read` scope
+2. Set `blog-repo` to your Hugo blog repository (e.g., `your-org/your-blog`)
+3. That's it — the default `github` provider uses your PAT for free LLM access
+
+**Optional inputs:** `period` (day/week), `frank-version`, `llm-provider`, `llm-model`, `commit-message`. To use a paid provider, set `llm-provider` and pass the corresponding secret (`anthropic-api-key`, `openai-api-key`, or `openrouter-api-key`).
+
+See the full input/secret reference in [generate-reusable.yaml](.github/workflows/generate-reusable.yaml) and a minimal example in [examples/workflow/generate-blog-posts.yaml](examples/workflow/generate-blog-posts.yaml).
+
+### Development workflow
+
+The included `.github/workflows/generate.yaml` is used by this repository itself — it builds frank from source and generates blog posts daily. For other projects, use the reusable workflow above.
 
 ## Tech stack
 
 - **Go** with [Cobra](https://github.com/spf13/cobra) for CLI
-- **LLM**: raw `net/http` calls to OpenAI, Anthropic, Ollama, and OpenRouter APIs (no SDKs)
+- **LLM**: raw `net/http` calls to GitHub Models, OpenAI, Anthropic, Ollama, and OpenRouter APIs (no SDKs)
 - **State**: [modernc.org/sqlite](https://pkg.go.dev/modernc.org/sqlite) — pure Go, no CGo
 - **Prompts**: embedded at compile time via `go:embed`
 

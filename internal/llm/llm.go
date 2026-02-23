@@ -28,6 +28,8 @@ func New(provider, model, apiKey string) (Provider, error) {
 			model = "llama3.2"
 		case "openrouter":
 			model = "anthropic/claude-sonnet-4-20250514"
+		case "github":
+			model = "openai/gpt-4o-mini"
 		}
 	}
 
@@ -40,7 +42,9 @@ func New(provider, model, apiKey string) (Provider, error) {
 		return NewOllama(model, os.Getenv("OLLAMA_HOST")), nil
 	case "openrouter":
 		return NewOpenRouter(model, apiKey), nil
+	case "github":
+		return NewGitHub(model, apiKey), nil
 	default:
-		return nil, fmt.Errorf("unknown LLM provider: %q (use 'openai', 'anthropic', 'ollama', or 'openrouter')", provider)
+		return nil, fmt.Errorf("unknown LLM provider: %q (use 'openai', 'anthropic', 'ollama', 'openrouter', or 'github')", provider)
 	}
 }

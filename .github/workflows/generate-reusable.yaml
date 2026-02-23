@@ -1,0 +1,124 @@
+name: Generate Blog Posts (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      blog-repo:
+        description: 'GitHub repository for the Hugo blog (e.g., org/blog)'
+        required: true
+        type: string
+      period:
+        description: 'Commit grouping period: day or week'
+        required: false
+        default: 'week'
+        type: string
+      frank-version:
+        description: 'Frank CLI version tag (e.g., v0.3.0) or "latest"'
+        required: false
+        default: 'latest'
+        type: string
+      llm-provider:
+        description: 'LLM provider: github, anthropic, openai, or openrouter'
+        required: false
+        default: 'github'
+        type: string
+      llm-model:
+        description: 'LLM model name (provider-specific, empty for default)'
+        required: false
+        default: ''
+        type: string
+      commit-message:
+        description: 'Git commit message for blog updates'
+        required: false
+        default: 'Auto-generate blog posts [skip ci]'
+        type: string
+    secrets:
+      gh-pat:
+        description: 'GitHub PAT with repo access and models:read scope'
+        required: true
+      anthropic-api-key:
+        description: 'Anthropic API key (required if llm-provider is anthropic)'
+        required: false
+      openai-api-key:
+        description: 'OpenAI API key (required if llm-provider is openai)'
+        required: false
+      openrouter-api-key:
+        description: 'OpenRouter API key (required if llm-provider is openrouter)'
+        required: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    env:
+      FRANK_HUGO_DIR: ./blog
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout blog
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.blog-repo }}
+          path: blog
+          token: ${{ secrets.gh-pat }}
+
+      - name: Download frank CLI
+        run: |
+          if [ "${{ inputs.frank-version }}" = "latest" ]; then
+            gh release download --repo frankenstein-ai/frank-blog-content-generator \
+              --pattern 'frank_*_linux_amd64.tar.gz' --output frank.tar.gz
+          else
+            gh release download "${{ inputs.frank-version }}" \
+              --repo frankenstein-ai/frank-blog-content-generator \
+              --pattern 'frank_*_linux_amd64.tar.gz' --output frank.tar.gz
+          fi
+          tar xzf frank.tar.gz frank
+          chmod +x frank
+        env:
+          GH_TOKEN: ${{ secrets.gh-pat }}
+
+      - name: Verify frank CLI
+        run: ./frank --version
+
+      - name: Restore state DB
+        uses: actions/cache@v4
+        with:
+          path: .frank-state.db
+          key: frank-state-${{ github.repository }}-${{ github.run_id }}
+          restore-keys: frank-state-${{ github.repository }}-
+
+      # NOTE: If your .frank.toml configures skills (e.g., skills = ["humanizer"]),
+      # the corresponding skill files (skills/humanizer.md) must be committed to
+      # your repository. The reusable workflow does not auto-download skills.
+      - name: Generate blog posts
+        run: ./frank generate blog-posts --period ${{ inputs.period }}
+        env:
+          FRANK_LLM_PROVIDER: ${{ inputs.llm-provider }}
+          FRANK_LLM_MODEL: ${{ inputs.llm-model }}
+          GITHUB_TOKEN: ${{ secrets.gh-pat }}
+          ANTHROPIC_API_KEY: ${{ secrets.anthropic-api-key }}
+          OPENAI_API_KEY: ${{ secrets.openai-api-key }}
+          OPENROUTER_API_KEY: ${{ secrets.openrouter-api-key }}
+
+      - name: Update menu and homepage
+        run: |
+          ./frank update menu
+          ./frank update home
+        env:
+          FRANK_LLM_PROVIDER: ${{ inputs.llm-provider }}
+          FRANK_LLM_MODEL: ${{ inputs.llm-model }}
+          GITHUB_TOKEN: ${{ secrets.gh-pat }}
+          ANTHROPIC_API_KEY: ${{ secrets.anthropic-api-key }}
+          OPENAI_API_KEY: ${{ secrets.openai-api-key }}
+          OPENROUTER_API_KEY: ${{ secrets.openrouter-api-key }}
+
+      - name: Commit and push blog
+        run: |
+          cd blog
+          git config user.name "frank-bot"
+          git config user.email "frank-bot@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "${{ inputs.commit-message }}"
+          git push
