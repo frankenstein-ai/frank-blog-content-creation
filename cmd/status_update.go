@@ -17,25 +17,42 @@ var statusUpdateCmd = &cobra.Command{
 
 func init() {
 	statusCmd.AddCommand(statusUpdateCmd)
-	statusUpdateCmd.Flags().String("commit", "", "Commit hash to set as last processed (required)")
-	statusUpdateCmd.MarkFlagRequired("commit")
+	statusUpdateCmd.Flags().String("commit", "", "Set the last processed commit to this hash")
+	statusUpdateCmd.Flags().Bool("reset", false, "Clear state entirely so next run processes all commits")
 }
 
 func runStatusUpdate(cmd *cobra.Command, args []string) error {
 	hash, _ := cmd.Flags().GetString("commit")
-	dbPath, _ := cmd.Flags().GetString("state-db")
+	reset, _ := cmd.Flags().GetBool("reset")
 
-	// Validate the commit exists
-	commit, err := git.GetCommit(".", hash)
-	if err != nil {
-		return fmt.Errorf("invalid commit: %w", err)
+	if !reset && hash == "" {
+		return fmt.Errorf("must specify either --reset or --commit <hash>")
 	}
+	if reset && hash != "" {
+		return fmt.Errorf("--reset and --commit are mutually exclusive")
+	}
+
+	dbPath, _ := cmd.Flags().GetString("state-db")
 
 	store, err := state.Open(dbPath)
 	if err != nil {
 		return err
 	}
 	defer store.Close()
+
+	if reset {
+		if err := store.ClearState(".", "blog-post"); err != nil {
+			return fmt.Errorf("clearing state: %w", err)
+		}
+		fmt.Println("State cleared. Next generation will process all commits.")
+		return nil
+	}
+
+	// Validate the commit exists
+	commit, err := git.GetCommit(".", hash)
+	if err != nil {
+		return fmt.Errorf("invalid commit: %w", err)
+	}
 
 	if err := store.SetLastCommit(".", "blog-post", commit.Hash, commit.Timestamp); err != nil {
 		return fmt.Errorf("updating state: %w", err)

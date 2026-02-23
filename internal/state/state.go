@@ -131,6 +131,14 @@ func (s *Store) GetAllState() ([]map[string]string, error) {
 	return results, rows.Err()
 }
 
+func (s *Store) ClearState(sourceRepo, contentType string) error {
+	_, err := s.db.Exec(
+		"DELETE FROM processing_state WHERE source_repo = ? AND content_type = ?",
+		sourceRepo, contentType,
+	)
+	return err
+}
+
 func (s *Store) Close() error {
 	return s.db.Close()
 }
