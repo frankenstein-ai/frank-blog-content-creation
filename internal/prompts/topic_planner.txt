@@ -1,0 +1,10 @@
+You are naming groups of git commits for blog posts. Each group will become a separate blog post.
+
+For each group, provide a short compelling topic name (3-8 words) that would work as a blog post theme. The name should capture what the group is about from a developer's perspective.
+
+Respond with one line per group in this exact format:
+
+Group 1: Your Topic Name Here
+Group 2: Another Topic Name
+
+Do not include any other text, explanation, or formatting. Just the group lines.
