@@ -175,9 +175,10 @@ func (g *BlogPostGenerator) Generate(ctx context.Context) ([]GenerateResult, err
 			for _, skill := range g.Skills {
 				fmt.Printf("  Running skill '%s' on blog post for %s...\n", skill.Name, topicLabel)
 				frontmatter, body := hugo.SplitFrontmatter(content)
+				skillInput := "Rewrite the following blog post body applying all patterns from your instructions. Output ONLY the rewritten markdown body — no preamble, no commentary, no notes.\n\n" + body
 				processed, err := g.LLM.Generate(ctx, llm.Request{
 					SystemPrompt: skill.Prompt,
-					UserPrompt:   body,
+					UserPrompt:   skillInput,
 					MaxTokens:    16384,
 					Temperature:  0.4,
 				})
@@ -185,6 +186,7 @@ func (g *BlogPostGenerator) Generate(ctx context.Context) ([]GenerateResult, err
 					return nil, fmt.Errorf("skill '%s' for %s: %w", skill.Name, topicLabel, err)
 				}
 				processed = hugo.SanitizeLLMOutput(processed)
+				processed = stripMetaCommentary(processed)
 				content = frontmatter + "\n" + strings.TrimSpace(processed) + "\n"
 			}
 
@@ -506,6 +508,137 @@ func (g *BlogPostGenerator) nameTopics(ctx context.Context, groups []topicGroup,
 	}
 
 	return named
+}
+
+// stripMarkdown removes markdown formatting from a line for pattern matching.
+func stripMarkdown(s string) string {
+	s = strings.TrimLeft(s, "#")
+	s = strings.TrimSpace(s)
+	s = strings.Trim(s, "*")
+	s = strings.TrimSpace(s)
+	return s
+}
+
+// stripMetaCommentary removes LLM preamble and trailing self-analysis from skill output.
+func stripMetaCommentary(text string) string {
+	lines := strings.Split(text, "\n")
+
+	// Strip preamble: skip leading lines that look like LLM meta-commentary
+	start := 0
+	for start < len(lines) {
+		trimmed := strings.TrimSpace(lines[start])
+		if trimmed == "" {
+			start++
+			continue
+		}
+		lower := strings.ToLower(stripMarkdown(trimmed))
+		if isPreambleLine(lower) {
+			start++
+			continue
+		}
+		break
+	}
+
+	// Strip trailing self-analysis: scan forward for first meta-commentary marker.
+	// Once found, truncate everything from that line onward.
+	// This handles multi-line meta blocks (marker + bullet lists + closing instruction).
+	end := len(lines)
+	for i := start; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if trimmed == "" {
+			continue
+		}
+		lower := strings.ToLower(stripMarkdown(trimmed))
+		if isTrailingMeta(lower) {
+			end = i
+			// If the preceding non-empty line is a separator (---), include it in the cut
+			for j := i - 1; j > start; j-- {
+				prev := strings.TrimSpace(lines[j])
+				if prev == "" {
+					continue
+				}
+				allDashes := strings.Trim(strings.ToLower(prev), "-=_ ")
+				if allDashes == "" && len(prev) >= 3 {
+					end = j
+				}
+				break
+			}
+			break
+		}
+	}
+
+	if start >= end {
+		return text // safety: don't strip everything
+	}
+
+	return strings.Join(lines[start:end], "\n")
+}
+
+func isPreambleLine(lower string) bool {
+	preambles := []string{
+		"draft rewrite",
+		"revised version",
+		"here is the rewrite",
+		"here's the rewrite",
+		"here is the revised",
+		"here's the revised",
+		"here is my rewrite",
+		"here's my rewrite",
+		"below is the rewrite",
+		"below is the revised",
+		"rewritten version",
+		"edited version",
+		"here is the edited",
+		"here's the edited",
+		"here is the updated",
+		"here's the updated",
+	}
+	for _, p := range preambles {
+		if strings.HasPrefix(lower, p) {
+			return true
+		}
+	}
+	// Lines that are just dashes or equals (separators after preamble)
+	allDashes := strings.Trim(lower, "-=_ ")
+	if allDashes == "" && len(lower) >= 3 {
+		return true
+	}
+	return false
+}
+
+func isTrailingMeta(lower string) bool {
+	markers := []string{
+		"what makes the below",
+		"what makes the above",
+		"what makes this",
+		"here's what i changed",
+		"here is what i changed",
+		"changes i made",
+		"changes made",
+		"key changes",
+		"what i changed",
+		"notes on changes",
+		"notes on the rewrite",
+		"summary of changes",
+		"now make it not obviously",
+		"now make it not",
+		"final rewrite",
+	}
+	for _, m := range markers {
+		if strings.HasPrefix(lower, m) {
+			return true
+		}
+	}
+	// Bracketed meta-notes like "[The final rewrite..." or "[Note:..."
+	if strings.HasPrefix(lower, "[") && !strings.HasPrefix(lower, "[!") {
+		bracketMeta := []string{"[the ", "[note", "[edit", "[rewrite", "[revision", "[change", "[final"}
+		for _, bm := range bracketMeta {
+			if strings.HasPrefix(lower, bm) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 var nonAlphanumeric = regexp.MustCompile(`[^a-z0-9]+`)

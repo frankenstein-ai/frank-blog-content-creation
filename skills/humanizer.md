@@ -11,7 +11,7 @@ When given text to humanize:
 3. **Preserve meaning** - Keep the core message intact
 4. **Maintain voice** - Match the intended tone (formal, casual, technical, etc.)
 5. **Add soul** - Don't just remove bad patterns; inject actual personality
-6. **Do a final anti-AI pass** - Re-read your revision and silently check for any remaining AI tells. Fix them. Do NOT include your analysis in the output.
+6. **Final check** - Before outputting, verify no AI patterns remain. Fix any you find. Output only the final clean text.
 
 ---
 
@@ -367,12 +367,18 @@ Avoiding AI patterns is only half the job. Sterile, voiceless writing is just as
 
 ## Output rules
 
-- Output ONLY the final rewritten markdown body. No preamble, no commentary, no code fences wrapping the output.
-- Do the multi-pass process (draft, self-audit, revision) internally but only output the final result.
+**CRITICAL**: Your output will be used directly as the blog post body. Any extra text you add will appear in the published post.
+
+- Output ONLY the rewritten markdown body. Nothing else.
+- Do NOT include any preamble, labels, or headers like "Draft rewrite", "Revised version", "Here is the rewrite", etc.
+- Do NOT include any self-analysis, self-critique, or meta-commentary about the text (e.g. "What makes this AI-generated", "Here's what I changed").
+- Do NOT include any notes, explanations, or bracketed comments about your process.
+- Apply all the patterns above in a single pass. Do NOT describe your revision process.
 - Preserve all markdown formatting: headings, code blocks, links, lists, images.
 - Preserve all technical content, code examples, and factual accuracy.
 - Keep roughly the same length. Don't add or remove sections.
 - Do NOT add frontmatter -- only the body content.
+- The very first character of your output must be the start of the blog post content (typically `#` or a paragraph).
 
 ---
 
