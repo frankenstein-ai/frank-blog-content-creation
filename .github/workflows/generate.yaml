@@ -66,5 +66,5 @@ jobs:
           git config user.name "frank-bot"
           git config user.email "frank-bot@frankenstein-ai.github.io"
           git add -A
-          git diff --staged --quiet || git commit -m "Auto-generate blog posts [skip ci]"
+          git diff --staged --quiet || git commit -m "Auto-generate blog posts"
           git push

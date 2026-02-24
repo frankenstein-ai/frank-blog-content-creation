@@ -30,7 +30,7 @@ on:
       commit-message:
         description: 'Git commit message for blog updates'
         required: false
-        default: 'Auto-generate blog posts [skip ci]'
+        default: 'Auto-generate blog posts'
         type: string
       start-commit:
         description: 'Commit hash to start from on first run (empty = HEAD, no posts on first run)'
