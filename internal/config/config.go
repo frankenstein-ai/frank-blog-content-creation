@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/spf13/cobra"
 )
@@ -11,6 +12,7 @@ type Config struct {
 	LLMProvider string
 	LLMModel    string
 	APIKey      string
+	Temperature float64 // 0 = use provider defaults, >0 = override, -1 = omit from request
 
 	HugoDir string
 
@@ -37,6 +39,15 @@ func Load(cmd *cobra.Command) (*Config, error) {
 	cfg.HugoDir = flagOrEnvOrToml(cmd, "hugo-dir", "FRANK_HUGO_DIR", toml.Values["hugo_dir"])
 	cfg.Period = flagOrEnvOrTomlDefault(cmd, "period", "", toml.Values["period"], "week")
 	cfg.Skills = toml.Skills
+
+	// Parse temperature: 0 = defaults, >0 = override, -1 = omit
+	if tempStr := os.Getenv("FRANK_LLM_TEMPERATURE"); tempStr != "" {
+		t, err := strconv.ParseFloat(tempStr, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid FRANK_LLM_TEMPERATURE %q: %w", tempStr, err)
+		}
+		cfg.Temperature = t
+	}
 
 	// Resolve API key based on provider
 	switch cfg.LLMProvider {

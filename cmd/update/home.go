@@ -105,11 +105,16 @@ func runHome(cmd *cobra.Command, args []string) error {
 	}
 	userPrompt.WriteString("\n\nUpdate the homepage body to include any new blog posts that are not already linked. Output the full updated body.")
 
+	homeTemp := 0.7
+	if cfg.Temperature != 0 {
+		homeTemp = cfg.Temperature
+	}
+
 	result, err := provider.Generate(context.Background(), llm.Request{
 		SystemPrompt: homeSystemPrompt,
 		UserPrompt:   userPrompt.String(),
 		MaxTokens:    4096,
-		Temperature:  0.7,
+		Temperature:  homeTemp,
 	})
 	if err != nil {
 		return err

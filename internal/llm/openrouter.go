@@ -33,7 +33,9 @@ func (o *OpenRouterProvider) Generate(ctx context.Context, req Request) (string,
 			{"role": "user", "content": req.UserPrompt},
 		},
 		"max_completion_tokens": maxTokensOrDefault(req.MaxTokens),
-		"temperature": temperatureOrDefault(req.Temperature),
+	}
+	if temp := temperatureOrDefault(req.Temperature); temp >= 0 {
+		body["temperature"] = temp
 	}
 
 	jsonBody, err := json.Marshal(body)

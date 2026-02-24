@@ -39,6 +39,7 @@ type BlogPostGenerator struct {
 	Period        string // "day" or "week"
 	ReadmeContent string
 	DryRun        bool
+	Temperature   float64 // 0 = use hardcoded defaults, >0 = override, -1 = omit
 }
 
 func (g *BlogPostGenerator) Generate(ctx context.Context) ([]GenerateResult, error) {
@@ -165,7 +166,7 @@ func (g *BlogPostGenerator) Generate(ctx context.Context) ([]GenerateResult, err
 				SystemPrompt: systemPrompt,
 				UserPrompt:   userPrompt,
 				MaxTokens:    16384,
-				Temperature:  0.7,
+				Temperature:  g.tempOrDefault(0.7),
 			})
 			if err != nil {
 				return nil, fmt.Errorf("generating blog post for %s: %w", topicLabel, err)
@@ -180,7 +181,7 @@ func (g *BlogPostGenerator) Generate(ctx context.Context) ([]GenerateResult, err
 					SystemPrompt: skill.Prompt,
 					UserPrompt:   skillInput,
 					MaxTokens:    16384,
-					Temperature:  0.4,
+					Temperature:  g.tempOrDefault(0.4),
 				})
 				if err != nil {
 					return nil, fmt.Errorf("skill '%s' for %s: %w", skill.Name, topicLabel, err)
@@ -467,7 +468,7 @@ func (g *BlogPostGenerator) nameTopics(ctx context.Context, groups []topicGroup,
 		SystemPrompt: g.Templates.TopicPlanner,
 		UserPrompt:   b.String(),
 		MaxTokens:    1024,
-		Temperature:  0.3,
+		Temperature:  g.tempOrDefault(0.3),
 	})
 	if err != nil {
 		log.Printf("  Warning: topic naming failed, using directory names: %v", err)
@@ -639,6 +640,15 @@ func isTrailingMeta(lower string) bool {
 		}
 	}
 	return false
+}
+
+// tempOrDefault returns the generator's configured temperature override,
+// or the provided default when no override is set (Temperature == 0).
+func (g *BlogPostGenerator) tempOrDefault(def float64) float64 {
+	if g.Temperature != 0 {
+		return g.Temperature
+	}
+	return def
 }
 
 var nonAlphanumeric = regexp.MustCompile(`[^a-z0-9]+`)

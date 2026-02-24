@@ -42,6 +42,11 @@ on:
         required: false
         default: ''
         type: string
+      temperature:
+        description: 'LLM temperature: empty/0 for defaults, positive value to override, -1 to omit (let model decide)'
+        required: false
+        default: ''
+        type: string
     secrets:
       gh-pat:
         description: 'GitHub PAT with repo access and models:read scope'
@@ -138,6 +143,7 @@ jobs:
         env:
           FRANK_LLM_PROVIDER: ${{ inputs.llm-provider }}
           FRANK_LLM_MODEL: ${{ inputs.llm-model }}
+          FRANK_LLM_TEMPERATURE: ${{ inputs.temperature }}
           GITHUB_TOKEN: ${{ secrets.gh-pat }}
           ANTHROPIC_API_KEY: ${{ secrets.anthropic-api-key }}
           OPENAI_API_KEY: ${{ secrets.openai-api-key }}
@@ -150,6 +156,7 @@ jobs:
         env:
           FRANK_LLM_PROVIDER: ${{ inputs.llm-provider }}
           FRANK_LLM_MODEL: ${{ inputs.llm-model }}
+          FRANK_LLM_TEMPERATURE: ${{ inputs.temperature }}
           GITHUB_TOKEN: ${{ secrets.gh-pat }}
           ANTHROPIC_API_KEY: ${{ secrets.anthropic-api-key }}
           OPENAI_API_KEY: ${{ secrets.openai-api-key }}

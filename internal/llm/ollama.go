@@ -36,8 +36,10 @@ func (o *OllamaProvider) Generate(ctx context.Context, req Request) (string, err
 			{"role": "system", "content": req.SystemPrompt},
 			{"role": "user", "content": req.UserPrompt},
 		},
-		"max_tokens":  maxTokensOrDefault(req.MaxTokens),
-		"temperature": temperatureOrDefault(req.Temperature),
+		"max_tokens": maxTokensOrDefault(req.MaxTokens),
+	}
+	if temp := temperatureOrDefault(req.Temperature); temp >= 0 {
+		body["temperature"] = temp
 	}
 
 	jsonBody, err := json.Marshal(body)

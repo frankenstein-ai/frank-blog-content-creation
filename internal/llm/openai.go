@@ -33,7 +33,9 @@ func (o *OpenAIProvider) Generate(ctx context.Context, req Request) (string, err
 			{"role": "user", "content": req.UserPrompt},
 		},
 		"max_completion_tokens": maxTokensOrDefault(req.MaxTokens),
-		"temperature": temperatureOrDefault(req.Temperature),
+	}
+	if temp := temperatureOrDefault(req.Temperature); temp >= 0 {
+		body["temperature"] = temp
 	}
 
 	jsonBody, err := json.Marshal(body)
@@ -107,6 +109,9 @@ func maxTokensOrDefault(n int) int {
 }
 
 func temperatureOrDefault(t float64) float64 {
+	if t == -1 {
+		return -1 // sentinel: omit from request
+	}
 	if t > 0 {
 		return t
 	}

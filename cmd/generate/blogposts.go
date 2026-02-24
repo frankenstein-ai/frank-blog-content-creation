@@ -81,6 +81,7 @@ func runBlogPosts(cmd *cobra.Command, args []string) error {
 		Period:        cfg.Period,
 		ReadmeContent: readmeContent,
 		DryRun:        cfg.DryRun,
+		Temperature:   cfg.Temperature,
 	}
 
 	results, err := gen.Generate(context.Background())
