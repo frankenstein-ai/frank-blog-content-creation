@@ -78,11 +78,11 @@ jobs:
       - name: Download frank CLI
         run: |
           if [ "${{ inputs.frank-version }}" = "latest" ]; then
-            gh release download --repo frankenstein-ai/frank-blog-content-generator \
+            gh release download --repo frankenstein-ai/frank-blog-content-creation \
               --pattern 'frank_*_linux_amd64.tar.gz' --output frank.tar.gz
           else
             gh release download "${{ inputs.frank-version }}" \
-              --repo frankenstein-ai/frank-blog-content-generator \
+              --repo frankenstein-ai/frank-blog-content-creation \
               --pattern 'frank_*_linux_amd64.tar.gz' --output frank.tar.gz
           fi
           tar xzf frank.tar.gz frank
