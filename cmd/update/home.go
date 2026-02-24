@@ -113,7 +113,7 @@ func runHome(cmd *cobra.Command, args []string) error {
 	result, err := provider.Generate(context.Background(), llm.Request{
 		SystemPrompt: homeSystemPrompt,
 		UserPrompt:   userPrompt.String(),
-		MaxTokens:    4096,
+		MaxTokens:    16384,
 		Temperature:  homeTemp,
 	})
 	if err != nil {
