@@ -32,7 +32,7 @@ func (g *GitHubProvider) Generate(ctx context.Context, req Request) (string, err
 			{"role": "system", "content": req.SystemPrompt},
 			{"role": "user", "content": req.UserPrompt},
 		},
-		"max_tokens":  maxTokensOrDefault(req.MaxTokens),
+		"max_completion_tokens": maxTokensOrDefault(req.MaxTokens),
 		"temperature": temperatureOrDefault(req.Temperature),
 	}
 

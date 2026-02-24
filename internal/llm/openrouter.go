@@ -32,7 +32,7 @@ func (o *OpenRouterProvider) Generate(ctx context.Context, req Request) (string,
 			{"role": "system", "content": req.SystemPrompt},
 			{"role": "user", "content": req.UserPrompt},
 		},
-		"max_tokens":  maxTokensOrDefault(req.MaxTokens),
+		"max_completion_tokens": maxTokensOrDefault(req.MaxTokens),
 		"temperature": temperatureOrDefault(req.Temperature),
 	}
 
