@@ -83,7 +83,8 @@ func (o *OllamaProvider) Generate(ctx context.Context, req Request) (string, err
 
 		var result struct {
 			Choices []struct {
-				Message struct {
+				FinishReason string `json:"finish_reason"`
+				Message      struct {
 					Content string `json:"content"`
 				} `json:"message"`
 			} `json:"choices"`
@@ -96,7 +97,8 @@ func (o *OllamaProvider) Generate(ctx context.Context, req Request) (string, err
 		}
 		content := result.Choices[0].Message.Content
 		if strings.TrimSpace(content) == "" {
-			return "", fmt.Errorf("empty content in response")
+			lastErr = fmt.Errorf("empty content in response (finish_reason: %s)", result.Choices[0].FinishReason)
+			continue
 		}
 		return content, nil
 	}

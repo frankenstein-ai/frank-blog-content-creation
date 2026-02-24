@@ -80,7 +80,8 @@ func (a *AnthropicProvider) Generate(ctx context.Context, req Request) (string, 
 		}
 
 		var result struct {
-			Content []struct {
+			StopReason string `json:"stop_reason"`
+			Content    []struct {
 				Type string `json:"type"`
 				Text string `json:"text"`
 			} `json:"content"`
@@ -93,7 +94,8 @@ func (a *AnthropicProvider) Generate(ctx context.Context, req Request) (string, 
 		}
 		text := result.Content[0].Text
 		if strings.TrimSpace(text) == "" {
-			return "", fmt.Errorf("empty content in response")
+			lastErr = fmt.Errorf("empty content in response (stop_reason: %s)", result.StopReason)
+			continue
 		}
 		return text, nil
 	}
