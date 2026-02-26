@@ -30,7 +30,7 @@ Voice and tone:
 Rules:
 - Write for developers and AI practitioners
 - Lead with the problem or question, not the solution
-- Include concrete examples and metrics from the source material
+- Only include facts, examples, and metrics that are directly evident in the provided commits, diffs, or README — never fabricate data, statistics, or quotes
 - Use the code diffs to understand what was actually changed, not just the commit messages
 - Use the project README for context about the project's purpose and architecture
 - Synthesize all commits in the period into a single coherent narrative
