@@ -277,7 +277,7 @@ func buildUserPrompt(repoName, period string, commits []git.Commit, diffs map[st
 		fmt.Fprintf(&b, "---\n\n")
 	}
 
-	b.WriteString("Write a blog post covering this work. Focus on what makes it interesting and useful for other developers.")
+	b.WriteString("Write a blog post covering this work. Tell the developer journey: what problem was being solved, how the approach evolved, what decisions were made and why, and what lessons emerged. Help readers learn from the experience, not just read about the changes.")
 	return b.String()
 }
 
