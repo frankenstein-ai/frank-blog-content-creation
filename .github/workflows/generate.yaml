@@ -1,70 +1,23 @@
 name: Generate Blog Posts
 
 on:
-  schedule:
-    - cron: '0 6 * * *'
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  generate:
-    runs-on: ubuntu-latest
-    env:
-      FRANK_HUGO_DIR: ./frank-blog
-    steps:
-      - name: Checkout source repo
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Checkout blog
-        uses: actions/checkout@v4
-        with:
-          repository: frankenstein-ai/frank-blog
-          path: frank-blog
-          token: ${{ secrets.GH_PAT }}
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.24'
-
-      - name: Restore state DB
-        uses: actions/cache@v4
-        with:
-          path: .frank-state.db
-          key: frank-state-${{ github.run_id }}
-          restore-keys: frank-state-
-
-      - name: Build frank CLI
-        run: go build -o frank .
-
-      - name: Generate blog posts
-        run: ./frank generate blog-posts --period week
-        env:
-          FRANK_LLM_PROVIDER: ${{ vars.FRANK_LLM_PROVIDER || 'anthropic' }}
-          FRANK_LLM_MODEL: ${{ vars.FRANK_LLM_MODEL || '' }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-
-      - name: Update menu
-        run: ./frank update menu
-
-      - name: Update homepage
-        run: ./frank update home
-        env:
-          FRANK_LLM_PROVIDER: ${{ vars.FRANK_LLM_PROVIDER || 'anthropic' }}
-          FRANK_LLM_MODEL: ${{ vars.FRANK_LLM_MODEL || '' }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-
-      - name: Commit and push blog
-        run: |
-          cd frank-blog
-          git config user.name "frank-bot"
-          git config user.email "frank-bot@frankenstein-ai.github.io"
-          git add -A
-          git diff --staged --quiet || git commit -m "Auto-generate blog posts"
-          git push
+  blog:
+    uses: frankenstein-ai/frank-blog-content-creation/.github/workflows/generate-reusable.yaml@main
+    with:
+      blog-repo: frankenstein-ai/frank-blog
+      llm-provider: openrouter
+      llm-model: openai/gpt-oss-20b
+      temperature: "-1"
+      skill-urls: |
+        humanizer=https://raw.githubusercontent.com/blader/humanizer/main/SKILL.md
+    secrets:
+      gh-pat: ${{ secrets.GH_PAT }}
+      openrouter-api-key: ${{ secrets.OPENROUTER_API_KEY }}
